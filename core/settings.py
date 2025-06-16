@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
 	'corsheaders',
+    'drf_spectacular',
     'user_auth_app',
     'coderr_app',
 ]
@@ -138,11 +139,19 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
-    ],
-    
+    ],    
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
     ]
+}
+
+# Optional: Du kannst auch ein bisschen Branding hinzufügen:
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Coderr API',
+    'DESCRIPTION': 'API documentation for the Coderr project',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
 }
