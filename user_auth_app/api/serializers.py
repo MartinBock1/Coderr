@@ -44,27 +44,22 @@ class RegistrationSerializer(serializers.ModelSerializer):
 
 
 class CustomAuthTokenSerializer(serializers.Serializer):
-    email = serializers.EmailField()
+    username = serializers.CharField()
     password = serializers.CharField(
         style={'input_type': 'password'},
         trim_whitespace=False
     )
 
     def validate(self, attrs):
-        email = attrs.get('email')
+        username = attrs.get('username')
         password = attrs.get('password')
 
-        if email and password:
-            try:
-                user_obj = User.objects.get(email=email)
-            except User.DoesNotExist:
-                raise serializers.ValidationError("Invalid email or password.")
-
-            user = authenticate(username=user_obj.username, password=password)
+        if username and password:
+            user = authenticate(username=username, password=password)
             if not user:
-                raise serializers.ValidationError("Invalid email or password.")
+                raise serializers.ValidationError("Invalid username or password.")
         else:
-            raise serializers.ValidationError("Both email and password are required.")
+            raise serializers.ValidationError("Both username and password are required.")
 
         attrs['user'] = user
         return attrs

@@ -6,7 +6,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.authtoken.views import ObtainAuthToken
 
 from user_auth_app.models import UserProfile
-from .serializers import RegistrationSerializer, UserProfileSerializer
+from .serializers import RegistrationSerializer, CustomAuthTokenSerializer, UserProfileSerializer
 
 
 class UserProfileList(generics.ListCreateAPIView):
@@ -41,6 +41,7 @@ class RegistrationView(APIView):
 
 class CustomLoginView(ObtainAuthToken):
     permission_classes = [AllowAny]
+    serializer_class = CustomAuthTokenSerializer
 
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
@@ -51,9 +52,9 @@ class CustomLoginView(ObtainAuthToken):
             data = {
                 'token': token.key,
                 'username': user.username,
-                'email': user.email
+                'email': user.email,
+                'user_id': user.id
             }
+            return Response(data, status=status.HTTP_200_OK)
         else:
-            data = serializer.errors
-
-        return Response(data)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
