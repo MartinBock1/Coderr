@@ -3,6 +3,84 @@ from django.contrib.auth.models import User
 from profile_app.models import Profile
 
 
+class CustomerProfileListSerializer(serializers.ModelSerializer):
+    """
+    A lightweight, read-only serializer for listing customer profiles.
+
+    This serializer is specifically designed for the customer list view. It flattens
+    the data structure by combining essential fields from both the User and Profile
+    models into a single, cohesive object for the API response.
+    """
+    # --- Fields from the linked User model ---
+    # These fields are explicitly defined to traverse the 'user' relationship
+    # and pull data directly from the associated User instance.
+    user = serializers.IntegerField(source='user.id', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
+    first_name = serializers.CharField(source='user.first_name', read_only=True)
+    last_name = serializers.CharField(source='user.last_name', read_only=True)
+    
+     # --- Fields from the Profile model (with special handling) ---
+
+    # The profile's creation timestamp, which is renamed to 'uploaded_at' for the API output.
+    # `source='created_at'`: Specifies that the data should come from the `created_at` model field.
+    # `format="..."`: Enforces a specific ISO 8601 string format, omitting milliseconds and timezone.
+    uploaded_at = serializers.DateTimeField(source='created_at', format="%Y-%m-%dT%H:%M:%S", read_only=True)
+
+    # The full URL to the profile picture.
+    # `source='file_url'`: This points to the `file_url` @property method on the Profile model,
+    # ensuring that a complete URL is returned, not just a relative file path.
+    file = serializers.CharField(source='file_url', read_only=True)
+
+    class Meta:
+        model = Profile
+        
+        # A list of all field names that should be included in the serialized output.
+        # It's crucial that any field explicitly defined above is also included in this
+        # list to be rendered in the final JSON response. The order here also
+        # determines the order of fields in the response.
+        fields = [
+            'user',
+            'username',
+            'first_name',
+            'last_name',
+            'file',
+            'uploaded_at',
+            'working_hours',
+            'type',
+        ]
+        
+        
+class BusinessProfileListSerializer(serializers.ModelSerializer):
+    """
+    A lightweight serializer for listing business profiles.
+    It includes essential information from both the User and Profile models.
+    """
+    # Fields from the linked user model
+    user = serializers.IntegerField(source='user.id', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
+    first_name = serializers.CharField(source='user.first_name', read_only=True)
+    last_name = serializers.CharField(source='user.last_name', read_only=True)
+
+    # URL of the profile picture from the property of the model
+    file = serializers.CharField(source='file_url', read_only=True)
+
+    class Meta:
+        model = Profile
+        # List of fields that exactly match the requirement
+        fields = [
+            'user',
+            'username',
+            'first_name',
+            'last_name',
+            'file',
+            'location',
+            'tel',
+            'description',
+            'working_hours',
+            'type',
+        ]
+
+
 class ProfileSerializer(serializers.ModelSerializer):
     """
     Serializes Profile model instances for the API.
