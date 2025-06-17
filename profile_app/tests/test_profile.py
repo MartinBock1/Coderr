@@ -2,7 +2,7 @@ from django.contrib.auth.models import User
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
-from coderr_app.models import Profile
+from profile_app.models import Profile
 
 # Helper function to dynamically generate the URL for the profile detail view.
 # Using reverse() is more robust than hardcoding URLs, as it adapts to changes in your urls.py.

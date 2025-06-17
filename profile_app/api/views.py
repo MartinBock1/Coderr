@@ -1,6 +1,6 @@
 from rest_framework import generics, permissions
 
-from coderr_app.models import Profile
+from profile_app.models import Profile
 from .serializers import ProfileSerializer
 from .permissions import IsOwnerOrReadOnly 
 
