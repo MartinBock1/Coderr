@@ -9,6 +9,7 @@ class ProfileSerializer(serializers.ModelSerializer):
     last_name = serializers.CharField(source='user.last_name', allow_blank=True)
     file = serializers.CharField(source='file_url', read_only=True)
     user = serializers.IntegerField(source='user.id', read_only=True)
+    created_at = serializers.DateTimeField(format="%Y-%m-%dT%H:%M:%S", read_only=True)
 
     class Meta:
         model = Profile
@@ -28,7 +29,6 @@ class ProfileSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['created_at']
 
-    # Überschreiben der update-Methode, um sowohl das Profil als auch den User zu aktualisieren.
     def update(self, instance, validated_data):
         user_data = validated_data.pop('user', {})
         user = instance.user
@@ -38,3 +38,4 @@ class ProfileSerializer(serializers.ModelSerializer):
         user.save()
         instance = super().update(instance, validated_data)
         return instance
+    
