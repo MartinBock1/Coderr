@@ -250,19 +250,41 @@ class ProfileAPITests(APITestCase):
         4.  The data for each item in the list is accurate.
         5.  Profiles of other types (e.g., 'customer') are correctly excluded.
         """
+        # Step 1: Authenticate the test client as a regular 'customer' user (user1).
+        # This demonstrates that any authenticated user, regardless of their own type,
+        # should be able to view the list of businesses.
         self.client.force_authenticate(user=self.user1)
+
+        # Step 2: Make a GET request to the business profile list endpoint.
         response = self.client.get(BUSINESS_LIST_URL)
 
+        # Step 3: Assert the primary success condition.
+        # The request should be successful because the user is authenticated.
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
+        # Step 4: Validate the structure and content of the response data.
+
+        # Ensure the response data is a list, as expected for a list view.
         self.assertIsInstance(response.data, list)
+
+        # Based on the `setUp` method, only one 'business' user was created (user3).
+        # Therefore, the returned list should contain exactly one profile.
         self.assertEqual(len(response.data), 1)
 
-        business_profile = response.data[0]
-        self.assertEqual(business_profile['username'], self.user3.username)
-        self.assertEqual(business_profile['type'], Profile.UserType.BUSINESS)
+        # Extract the first (and only) profile from the list for detailed inspection.
+        business_profile_data = response.data[0]
+        
+        # Verify that the data in the response corresponds to the correct user (user3)
+        # and has the correct type. This confirms the serializer and view filter are working.
+        self.assertEqual(business_profile_data['username'], self.user3.username)
+        self.assertEqual(business_profile_data['type'], Profile.UserType.BUSINESS)
 
+        # Step 5: Final check to ensure that non-business users are correctly excluded.
+        # We create a list of all usernames present in the response.
         usernames_in_response = [p['username'] for p in response.data]
+        
+        # Assert that the username of a known 'customer' user (user1) is not in this list,
+        # confirming that the view's queryset filter is working correctly.
         self.assertNotIn(self.user1.username, usernames_in_response)
 
     # === Tests for the Customer Profile List View ===
