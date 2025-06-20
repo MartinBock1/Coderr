@@ -46,6 +46,7 @@ INSTALLED_APPS = [
 	'corsheaders',
     'drf_spectacular',
     'profile_app.apps.ProfileAppConfig',
+    'offers_app.apps.OffersAppConfig',
     'user_auth_app.apps.UserAuthAppConfig',
 ]
 
