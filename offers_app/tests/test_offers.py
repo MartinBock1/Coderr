@@ -4,12 +4,15 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from offers_app.models import Offer, OfferDetail
+from user_auth_app.models import UserProfile
 
 User = get_user_model()
 
 # ====================================================================
 # CLASS 1: Tests on an empty database
 # ====================================================================
+
+
 class OfferAPINoDataTests(APITestCase):
     """
     Test suite for the Offer API endpoints in a clean state.
@@ -30,10 +33,10 @@ class OfferAPINoDataTests(APITestCase):
         """
         # Resolve the URL for the offer list view. This checks if the URL name is valid.
         url = reverse('offer-list')
-        
+
         # Make a GET request to the resolved URL using the test client.
         response = self.client.get(url)
-        
+
         # Assert that the HTTP status code in the response is 200 (OK).
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
@@ -51,19 +54,19 @@ class OfferAPINoDataTests(APITestCase):
         """
         # Get the URL for the offer list endpoint.
         url = reverse('offer-list')
-        
+
         # Make a GET request to the endpoint.
         response = self.client.get(url)
-        
+
         # --- Assertions for Pagination Structure ---
         # Verify that the standard pagination keys are present in the response data.
         self.assertIn('count', response.data)
         self.assertIn('results', response.data)
-        
+
         # --- Assertions for Empty State ---
         # Check that the total count of items is correctly reported as 0.
         self.assertEqual(response.data['count'], 0)
-        
+
         # Check that the list of results itself is empty.
         self.assertEqual(len(response.data['results']), 0)
 
@@ -136,14 +139,14 @@ class OfferAPIWithDataTests(APITestCase):
         """
         # Get the URL for the offer list endpoint.
         url = reverse('offer-list')
-        
+
         # Send a GET request with a query parameter to filter by the creator's ID.
         response = self.client.get(url, {'creator_id': self.user1.id})
-        
+
         # Assert that the title of the single returned offer is the one we expect
         # for the offer created by user1.
         self.assertEqual(response.data['results'][0]['title'], "Fast Website")
-        
+
     def test_offer_list_data_structure_is_correct_ok(self):
         """
         Verifies the integrity of the data structure for a single serialized offer.
@@ -163,10 +166,10 @@ class OfferAPIWithDataTests(APITestCase):
         """
         # Get the URL for the offer list endpoint.
         url = reverse('offer-list')
-        
+
         # Make a GET request to retrieve all offers.
         response = self.client.get(url)
-        
+
         # Basic sanity checks: the request should succeed and return all items.
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['count'], 2)
@@ -175,7 +178,7 @@ class OfferAPIWithDataTests(APITestCase):
         # order of results (which could change).
         result = next((item for item in response.data['results']
                        if item['title'] == 'Fast Website'), None)
-        
+
         # Ensure the offer we want to inspect was actually found in the response.
         self.assertIsNotNone(result, "Offer 'Fast Website' not found in results")
 
@@ -195,7 +198,7 @@ class OfferAPIWithDataTests(APITestCase):
         ]
         # `assertCountEqual` checks that the keys are the same, regardless of order.
         self.assertCountEqual(result.keys(), expected_keys)
-        
+
         # Verify that the nested 'details' list has the correct number of items, comparing it to
         # the source data in the database.
         self.assertEqual(len(result['details']), self.offer1.details.count())
@@ -216,14 +219,14 @@ class OfferAPIWithDataTests(APITestCase):
         """
         # Get the URL for the offer list endpoint.
         url = reverse('offer-list')
-        
+
         # Send a GET request with a query parameter to filter by the creator's ID.
         response = self.client.get(url, {'creator_id': self.user1.id})
-        
+
         # Assert that the API correctly returns exactly one result, as user1
         # only created one offer in the test setup.
         self.assertEqual(response.data['count'], 1)
-        
+
         # Assert that the title of the single returned offer is the one we expect for the offer
         # created by user1.
         self.assertEqual(response.data['results'][0]['title'], "Fast Website")
@@ -245,15 +248,15 @@ class OfferAPIWithDataTests(APITestCase):
         """
         # Get the URL for the offer list endpoint.
         url = reverse('offer-list')
-        
+
         # Send a GET request with the min_price filter.
         # In our test data, offer1 (min_price=100) should be excluded,
         # and offer2 (min_price=500) should be included.
         response = self.client.get(url, {'min_price': 300})
-        
+
         # Assert that only one offer meets the criteria.
         self.assertEqual(response.data['count'], 1)
-        
+
         # Assert that the correct offer ("Complex App") is the one returned.
         self.assertEqual(response.data['results'][0]['title'], "Complex App")
 
@@ -275,15 +278,15 @@ class OfferAPIWithDataTests(APITestCase):
         """
         # Get the URL for the offer list endpoint.
         url = reverse('offer-list')
-        
+
         # Send a GET request with the max_delivery_time filter.
         # In our test data, offer1 (min_delivery_time=7) should be included,
         # and offer2 (min_delivery_time=20) should be excluded.
         response = self.client.get(url, {'max_delivery_time': 15})
-        
+
         # Assert that only one offer meets the criteria.
         self.assertEqual(response.data['count'], 1)
-        
+
         # Assert that the correct offer ("Fast Website") is the one returned.
         self.assertEqual(response.data['results'][0]['title'], "Fast Website")
 
@@ -304,12 +307,12 @@ class OfferAPIWithDataTests(APITestCase):
         """
         # Get the URL for the offer list endpoint.
         url = reverse('offer-list')
-        
+
         # 1. Search for a term present in the title of offer1.
         # We expect this to find the "Fast Website" offer.
         response = self.client.get(url, {'search': 'Fast'})
         self.assertEqual(response.data['count'], 1)
-        
+
         # 2. Now, perform a separate search for a term in the description of offer2.
         # We expect this to find the "Complex App" offer with its "advanced solution" description.
         response = self.client.get(url, {'search': 'advanced'})
@@ -330,15 +333,15 @@ class OfferAPIWithDataTests(APITestCase):
         """
         # Get the URL for the offer list endpoint.
         url = reverse('offer-list')
-       
+
         # --- Test 1: Ascending Order ---
         # Send a GET request to order by min_price in ascending order.
         response = self.client.get(url, {'ordering': 'min_price'})
         results = response.data['results']
-        
+
         # Assert that the first result is the cheaper offer.
-        self.assertEqual(results[0]['title'], "Fast Website") # Price 100
-        
+        self.assertEqual(results[0]['title'], "Fast Website")  # Price 100
+
         # Assert that the second result is the more expensive offer.
         self.assertEqual(results[1]['title'], "Complex App")  # Price 500
 
@@ -346,9 +349,246 @@ class OfferAPIWithDataTests(APITestCase):
         # Send a new GET request to order by min_price in descending order.
         response = self.client.get(url, {'ordering': '-min_price'})
         results = response.data['results']
-        
+
         # Assert that the first result is now the more expensive offer.
         self.assertEqual(results[0]['title'], "Complex App")    # Price 500
-        
+
         # Assert that the second result is now the cheaper offer.
-        self.assertEqual(results[1]['title'], "Fast Website") # Price 100
+        self.assertEqual(results[1]['title'], "Fast Website")  # Price 100
+
+
+# ====================================================================
+# CLASS 3: Tests for creating (POST) offers
+# ====================================================================
+class OfferAPIPostTests(APITestCase):
+    """
+    Test suite for creating new offers via the API's POST endpoint.
+
+    This class focuses on the creation logic, including data validation, authentication
+    requirements, and the integrity of the created data. It uses a dedicated `setUp` method to
+    create a user and authenticate them for each test, ensuring a clean and predictable state.
+    """
+
+    def setUp(self):
+        """
+        Creates a 'business' user who can post and a 'customer' user who cannot.
+        """
+        # Create an authorized "business" user and their profile
+        self.business_user = User.objects.create_user(
+            username='business_owner',
+            password='password123'
+        )
+        UserProfile.objects.create(user=self.business_user, type='business')
+
+        # Create a non-authorized "customer" user and their profile
+        self.customer_user = User.objects.create_user(
+            username='regular_customer',
+            password='password123'
+        )
+        UserProfile.objects.create(user=self.customer_user, type='customer')
+
+        # The URL for creating offers is the same as the list view.
+        self.url = reverse('offer-list')
+
+        self.valid_payload = {
+            "title": "Grafikdesign-Paket",
+            "description": "Ein umfassendes Paket.",
+            "details": [
+                {
+                    "title": "Basic", "price": 100,
+                    "delivery_time_days": 5,
+                    "revisions": 2,
+                    "offer_type": "basic",
+                    "features": ["Logo"]
+                },
+                {
+                    "title": "Standard",
+                    "price": 200,
+                    "delivery_time_days": 7,
+                    "revisions": 5,
+                    "offer_type": "standard",
+                    "features": ["Logo", "Visitenkarte"]
+                },
+                {
+                    "title": "Premium",
+                    "price": 500,
+                    "delivery_time_days": 10,
+                    "revisions": 10,
+                    "offer_type": "premium",
+                    "features": ["Logo", "Visitenkarte", "Flyer"]
+                }
+            ]
+        }
+
+    def test_business_user_can_create_offer_with_valid_data(self):
+        """
+        Tests the "happy path" for creating an offer with a valid payload.
+
+        This test verifies that an authenticated 'business' user can successfully create a new
+        offer. It covers several key aspects:
+
+        1.  **Authentication & Authorization**: Ensures a correctly authorized user can access
+            the endpoint.
+        2.  **Successful Creation (HTTP 201)**: Confirms that a valid request results in an HTTP
+            201 CREATED status.
+        3.  **Database Integrity**: Checks that the correct number of `Offer` and `OfferDetail`
+            objects are created.
+        4.  **Response Structure & Content**: Validates that the response body contains the full
+            data of the new offer, including `id` fields and correctly serialized nested details.
+        """
+        # Authenticate the client as the user authorized to create offers.
+        self.client.force_authenticate(user=self.business_user)
+
+        # Send a POST request to the offer creation endpoint with a valid payload.
+        response = self.client.post(self.url, self.valid_payload, format='json')
+
+        # --- Assertions ---
+
+        # 1. Verify that the request was successful and the resource was created.
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        # 2. Confirm that the correct number of objects were created in the database.
+        self.assertEqual(Offer.objects.count(), 1)
+        self.assertEqual(OfferDetail.objects.count(), 3)
+
+        # 3. Check the structure of the response for key fields.
+        #    The top-level object should have an 'id'.
+        self.assertIn('id', response.data)
+        #    The 'details' list should contain three items.
+        self.assertEqual(len(response.data['details']), 3)
+        #    The nested detail objects should also have their own 'id'.
+        self.assertIn('id', response.data['details'][0])
+
+        # 4. Spot-check a specific value to confirm content integrity. This
+        #    ensures details were created and serialized in the expected order.
+        self.assertEqual(response.data['details'][1]['title'], "Standard Package")
+
+    def test_create_offer_unauthenticated_fails_401(self):
+        """
+        Ensures that unauthenticated (anonymous) users cannot create offers.
+
+        This is a critical security test. It verifies that the endpoint is properly protected by
+        authentication middleware. An attempt to POST data without credentials should be rejected
+        with an HTTP 401 Unauthorized status, and no objects should be created in the database.
+        """
+        # Make a POST request without any authentication.
+        # The client is unauthenticated by default in this test class's setUp.
+        response = self.client.post(self.url, self.valid_payload, format='json')
+
+        # Assert that the request was rejected with an Unauthorized status.
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # Crucially, verify that no Offer object was created in the database
+        # as a result of the failed request.
+        self.assertEqual(Offer.objects.count(), 0)
+
+    def test_non_business_user_cannot_create_offer_fails_403(self):
+        """
+        Ensures a user without the 'business' role is forbidden from creating an offer.
+
+        This test checks the role-based permission system. It authenticates a user who is a
+        standard 'customer' and verifies that their attempt to create an offer is rejected with
+        an HTTP 403 Forbidden status. This confirms that the `IsBusinessUser` permission class is
+        correctly enforced on the view.
+        """
+        # Authenticate the client as a user who is logged in but lacks the
+        # required 'business' role.
+        self.client.force_authenticate(user=self.customer_user)
+
+        # Attempt to create an offer with this non-authorized user.
+        response = self.client.post(self.url, self.valid_payload, format='json')
+
+        # Assert that the server correctly denied permission with a 403 status.
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        # Verify that no Offer object was created as a result of the denied request.
+        self.assertEqual(Offer.objects.count(), 0)
+
+    def test_create_offer_with_too_many_details_fails_400(self):
+        """
+        Ensures a request with more than the allowed number of details is rejected.
+
+        This test enforces a specific business rule: an offer must contain exactly three detail
+        packages. It sends a payload with four details and verifies that the server rejects it
+        with an HTTP 400 Bad Request. This validates the custom logic in the serializer's
+        `validate_details` method.
+        """
+        # Authenticate as an authorized business user.
+        self.client.force_authenticate(user=self.business_user)
+
+        # Create a payload that is intentionally invalid by having too many details.
+        invalid_payload = self.valid_payload.copy()
+        invalid_payload['details'].append(self.valid_payload['details'][0])  # Now has 4 details
+
+        # Send the invalid payload to the endpoint.
+        response = self.client.post(self.url, invalid_payload, format='json')
+
+        # Assert that the request fails with a Bad Request status code.
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Check that the error message correctly points to the 'details' field.
+        self.assertIn('details', response.data)
+
+        # Ensure that no objects were created due to the validation failure.
+        self.assertEqual(Offer.objects.count(), 0)
+
+    def test_create_offer_missing_required_title_fails_400(self):
+        """
+        Ensures a payload missing a required top-level field is rejected.
+
+        This test checks the basic serializer validation inherited from the model. It sends a
+        payload that is intentionally missing the mandatory `title` field and verifies that the
+        API correctly identifies the error, rejects the request with an HTTP 400 Bad Request, and
+        returns a descriptive error message pointing to the missing field.
+        """
+        # Authenticate as an authorized business user.
+        self.client.force_authenticate(user=self.business_user)
+
+        # Create a payload that is invalid because it lacks the 'title' field.
+        invalid_payload = self.valid_payload.copy()
+        del invalid_payload['title']
+
+        # Send the malformed request.
+        response = self.client.post(self.url, invalid_payload, format='json')
+
+        # Assert that the server identifies the request as invalid.
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Verify that the error response specifically mentions the 'title' field.
+        self.assertIn('title', response.data)
+
+        # Ensure no data was persisted to the database.
+        self.assertEqual(Offer.objects.count(), 0)
+
+    def test_create_offer_with_invalid_nested_data_fails_400(self):
+        """
+        Ensures a payload with invalid data in a nested object is rejected.
+
+        This test checks that the validation cascades down to nested serializers. It creates a
+        payload where a required field (`price`) is missing from one of the objects within the
+        `details` list. It then verifies that the entire request is rejected with an HTTP 400 Bad
+        Request and that the error message correctly points to the specific error in the nested
+        structure.
+        """
+        # Authenticate as an authorized business user to isolate the validation logic.
+        self.client.force_authenticate(user=self.business_user)
+
+        # Start with a valid payload and make one of the nested objects invalid.
+        invalid_payload = self.valid_payload.copy()
+        # Remove the required 'price' field from the second detail object.
+        del invalid_payload['details'][1]['price']
+
+        # Send the request containing the invalid nested data.
+        response = self.client.post(self.url, invalid_payload, format='json')
+
+        # Assert that the entire request is rejected as a Bad Request.
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Verify that the error response structure points to the correct location.
+        # The top-level error should be on the 'details' list.
+        self.assertIn('details', response.data)
+        # The nested error message should specify the missing 'price' field.
+        self.assertIn('price', response.data['details'][1])
+
+        # Ensure the failed transaction did not create any objects in the database.
+        self.assertEqual(Offer.objects.count(), 0)

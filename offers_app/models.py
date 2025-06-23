@@ -3,6 +3,7 @@ from django.conf import settings
 
 # Create your models here.
 
+
 class Offer(models.Model):
     """
     Represents a main service or product offer created by a user.
@@ -23,7 +24,7 @@ class Offer(models.Model):
         null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
         ordering = ['-updated_at']
         verbose_name = "Offer"
@@ -32,7 +33,8 @@ class Offer(models.Model):
     def __str__(self):
         """String representation of the Offer model."""
         return self.title
-    
+
+
 class OfferDetail(models.Model):
     """
     Represents a specific pricing tier or package for an Offer.
@@ -46,6 +48,11 @@ class OfferDetail(models.Model):
     title = models.CharField(max_length=150, default="Standard Package")
     price = models.DecimalField(max_digits=10, decimal_places=2)
     delivery_time_days = models.PositiveIntegerField()
+    description = models.TextField(blank=True, null=True)
+    image = models.ImageField(
+        upload_to='offers/images/',
+        blank=True,
+        null=True)
 
     class Meta:
         ordering = ['price']
