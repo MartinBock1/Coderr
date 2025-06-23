@@ -44,15 +44,27 @@ class OfferDetail(models.Model):
     this model to calculate the 'min_price' and 'min_delivery_time' for the
     parent Offer.
     """
+    class OfferType(models.TextChoices):
+        BASIC = 'basic', 'Basic'
+        STANDARD = 'standard', 'Standard'
+        PREMIUM = 'premium', 'Premium'
+
     offer = models.ForeignKey(Offer, on_delete=models.CASCADE, related_name="details")
-    title = models.CharField(max_length=150, default="Standard Package")
+    title = models.CharField(max_length=150) # default entfernt, da es im Request mitkommt
     price = models.DecimalField(max_digits=10, decimal_places=2)
     delivery_time_days = models.PositiveIntegerField()
     description = models.TextField(blank=True, null=True)
     image = models.ImageField(
         upload_to='offers/images/',
         blank=True,
-        null=True)
+        null=True)    
+    revisions = models.PositiveIntegerField(default=0)
+    features = models.JSONField(default=list) # Beste Wahl für eine Liste von Strings
+    offer_type = models.CharField(
+        max_length=20, 
+        choices=OfferType.choices, 
+        default=OfferType.STANDARD
+    )
 
     class Meta:
         ordering = ['price']

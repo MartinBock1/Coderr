@@ -395,27 +395,28 @@ class OfferAPIPostTests(APITestCase):
             "description": "Ein umfassendes Paket.",
             "details": [
                 {
-                    "title": "Basic", "price": 100,
-                    "delivery_time_days": 5,
-                    "revisions": 2,
-                    "offer_type": "basic",
-                    "features": ["Logo"]
+                    "title": "Basic Paket",  # Eindeutiger Titel für den Test
+                    "price": "150.00",
+                    "delivery_time_in_days": 5,
+                    "revisions": 1,
+                    "features": ["Ein Feature"],
+                    "offer_type": "basic"
                 },
                 {
-                    "title": "Standard",
-                    "price": 200,
-                    "delivery_time_days": 7,
+                    "title": "Standard Paket", # Eindeutiger Titel für den Test
+                    "price": "300.00",
+                    "delivery_time_in_days": 3,
+                    "revisions": 3,
+                    "features": ["Zwei Features"],
+                    "offer_type": "standard"
+                },
+                {
+                    "title": "Premium Paket", # Eindeutiger Titel für den Test
+                    "price": "500.00",
+                    "delivery_time_in_days": 2,
                     "revisions": 5,
-                    "offer_type": "standard",
-                    "features": ["Logo", "Visitenkarte"]
-                },
-                {
-                    "title": "Premium",
-                    "price": 500,
-                    "delivery_time_days": 10,
-                    "revisions": 10,
-                    "offer_type": "premium",
-                    "features": ["Logo", "Visitenkarte", "Flyer"]
+                    "features": ["Alle Features"],
+                    "offer_type": "premium"
                 }
             ]
         }
@@ -441,6 +442,14 @@ class OfferAPIPostTests(APITestCase):
 
         # Send a POST request to the offer creation endpoint with a valid payload.
         response = self.client.post(self.url, self.valid_payload, format='json')
+        
+        # --- DEBUG-AUSGABE ---
+        import json
+        if response.status_code == 400:
+            print("\n--- VALIDATION ERROR ---")
+            print(json.dumps(response.data, indent=2))
+            print("------------------------\n")
+        # -----------------------------
 
         # --- Assertions ---
 
@@ -461,7 +470,7 @@ class OfferAPIPostTests(APITestCase):
 
         # 4. Spot-check a specific value to confirm content integrity. This
         #    ensures details were created and serialized in the expected order.
-        self.assertEqual(response.data['details'][1]['title'], "Standard Package")
+        self.assertEqual(response.data['details'][1]['title'], self.valid_payload['details'][1]['title'])
 
     def test_create_offer_unauthenticated_fails_401(self):
         """

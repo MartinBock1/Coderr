@@ -84,3 +84,4 @@ class IsBusinessUser(permissions.BasePermission):
             return request.user.userprofile.type == 'business'
         
         return False
+    
