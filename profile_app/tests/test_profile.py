@@ -7,7 +7,6 @@ from profile_app.models import Profile
 # Helper function to dynamically generate the URL for the profile detail view.
 # Using reverse() is more robust than hardcoding URLs, as it adapts to changes in your urls.py.
 
-
 def PROFILE_DETAIL_URL(pk): return reverse('profile-detail', kwargs={'pk': pk})
 
 
@@ -263,16 +262,18 @@ class ProfileAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # Step 4: Validate the structure and content of the response data.
+        # The actual list of profiles is inside the 'results' key due to pagination.
+        results = response.data['results']
 
         # Ensure the response data is a list, as expected for a list view.
-        self.assertIsInstance(response.data, list)
+        self.assertIsInstance(results, list)
 
         # Based on the `setUp` method, only one 'business' user was created (user3).
         # Therefore, the returned list should contain exactly one profile.
-        self.assertEqual(len(response.data), 1)
+        self.assertEqual(len(results), 1)
 
         # Extract the first (and only) profile from the list for detailed inspection.
-        business_profile_data = response.data[0]
+        business_profile_data = results[0]
         
         # Verify that the data in the response corresponds to the correct user (user3)
         # and has the correct type. This confirms the serializer and view filter are working.
@@ -281,7 +282,7 @@ class ProfileAPITests(APITestCase):
 
         # Step 5: Final check to ensure that non-business users are correctly excluded.
         # We create a list of all usernames present in the response.
-        usernames_in_response = [p['username'] for p in response.data]
+        usernames_in_response = [p['username'] for p in results]
         
         # Assert that the username of a known 'customer' user (user1) is not in this list,
         # confirming that the view's queryset filter is working correctly.
@@ -321,15 +322,17 @@ class ProfileAPITests(APITestCase):
 
         # 1 Basic checks
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIsInstance(response.data, list)
+        # The actual list is in the 'results' key.
+        results = response.data['results']
+        self.assertIsInstance(results, list)
 
         # 2. check the correct number
         # There should be exactly 2 customers (user1 and user2)
-        self.assertEqual(len(response.data), 2)
+        self.assertEqual(len(results), 2)
 
         # 3. robust verification of the content (regardless of the order)
         # Create a list of usernames from the API response
-        usernames_in_response = {p['username'] for p in response.data}
+        usernames_in_response = {p['username'] for p in results}
 
         # Create a set of expected usernames
         expected_usernames = {'testuser1', 'testuser2'}
@@ -343,5 +346,5 @@ class ProfileAPITests(APITestCase):
         self.assertNotIn(self.user3.username, usernames_in_response)
 
         # 5. make sure that each entry in the list has the correct type
-        for profile_data in response.data:
+        for profile_data in results:
             self.assertEqual(profile_data['type'], Profile.UserType.CUSTOMER)
