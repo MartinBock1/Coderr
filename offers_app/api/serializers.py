@@ -97,8 +97,8 @@ class OfferCreateUpdateSerializer(serializers.ModelSerializer):
         
         if details_data is not None:
             instance.details.all().delete()
-            for detail_data in details_data:
-                OfferDetail.objects.create(offer=instance, **detail_data)
+            for detail_item in details_data:
+                OfferDetail.objects.create(offer=instance, **detail_item)
             
         return instance
         
