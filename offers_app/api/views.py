@@ -117,3 +117,11 @@ class OfferViewSet(viewsets.ModelViewSet):
 class OfferDetailViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = OfferDetail.objects.all()
     serializer_class = OfferDetailReadSerializer  # Verwenden Sie einen passenden Serializer
+    
+    def get_permissions(self):
+        """
+        Instantiates and returns the list of permissions that this view requires.
+        For this ViewSet, all read-only actions are allowed for any user.
+        """
+        self.permission_classes = [AllowAny]
+        return super().get_permissions()
