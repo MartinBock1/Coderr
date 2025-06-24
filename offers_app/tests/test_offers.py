@@ -741,4 +741,99 @@ class OfferAPIDetailViewTests(APITestCase):
         
         # Assert that the server correctly returns a 404 Not Found status.
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+    
+    
+# ====================================================================
+# CLASS 5: Tests for updating an offer (PATCH)
+# ====================================================================
+class OfferAPIPatchTests(APITestCase):
+    """
+    Test suite for updating an Offer via PATCH /api/offers/{id}/.
+    """
+    def setUp(self):
+        """Set up users and an offer to be updated."""
+        # The user who owns the offer
+        self.owner = User.objects.create_user(username='owner', password='password123')
+        UserProfile.objects.create(user=self.owner, type='business')
+        
+        # A different user who is also a business user but not the owner
+        self.non_owner = User.objects.create_user(username='nonowner', password='password123')
+        UserProfile.objects.create(user=self.non_owner, type='business')
+        
+        # Create a full offer with 3 details
+        self.offer = Offer.objects.create(
+            user=self.owner,
+            title="Original Title",
+            description="Original Description"
+        )
+        self.detail1 = OfferDetail.objects.create(
+            offer=self.offer, title="Basic", offer_type="basic", price=100, delivery_time_days=10)
+        self.detail2 = OfferDetail.objects.create(
+            offer=self.offer, title="Standard", offer_type="standard", price=200, delivery_time_days=7)
+        self.detail3 = OfferDetail.objects.create(
+            offer=self.offer, title="Premium", offer_type="premium", price=300, delivery_time_days=5)
+
+        self.url = reverse('offer-detail', kwargs={'pk': self.offer.pk})
+        
+    def test_owner_can_patch_offer_using_offer_type(self):
+        """
+        Verifies the owner can partially update the offer using 'offer_type' to match details.
+        """
+        self.client.force_authenticate(user=self.owner)
+        
+        patch_payload = {
+            "title": "Updated Title",
+            "details": [
+                {
+                    "offer_type": "standard",
+                    "price": "250.50",
+                    "revisions": 99
+                }
+            ]
+        }
+
+        response = self.client.patch(self.url, patch_payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        
+        self.offer.refresh_from_db()
+        self.detail1.refresh_from_db()
+        self.detail2.refresh_from_db()
+        self.detail3.refresh_from_db()
+
+        self.assertEqual(self.offer.title, "Updated Title")
+        self.assertEqual(self.detail2.price, 250.50)
+        self.assertEqual(self.detail2.revisions, 99)
+        self.assertEqual(self.detail1.price, 100)
+        self.assertEqual(self.detail3.price, 300)
+
+    def test_patch_by_non_owner_fails_403(self):
+        """
+        Verifies that a user who is not the owner cannot patch the offer.
+        """
+        self.client.force_authenticate(user=self.non_owner)
+        patch_payload = {"title": "Attempted Update"}
+        response = self.client.patch(self.url, patch_payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_patch_unauthenticated_fails_401(self):
+        """
+        Verifies that an unauthenticated user cannot patch the offer.
+        """
+        patch_payload = {"title": "Attempted Update"}
+        response = self.client.patch(self.url, patch_payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+    
+    def test_patch_without_offer_type_in_detail_fails_400(self):
+        """
+        Verifies that patching a detail without providing 'offer_type' fails.
+        """
+        self.client.force_authenticate(user=self.owner)
+        patch_payload = {
+            "details": [{"price": "99.00"}]
+        }
+        response = self.client.patch(self.url, patch_payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("must have an 'offer_type'", str(response.data))
+        
+        
         
