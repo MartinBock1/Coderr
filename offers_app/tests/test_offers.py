@@ -635,3 +635,110 @@ class OfferAPIPostTests(APITestCase):
 
         # Ensure the failed transaction did not create any objects in the database.
         self.assertEqual(Offer.objects.count(), 0)
+
+# ====================================================================
+# CLASS 4: Tests for retrieving a single offer (GET detail)
+# ====================================================================
+class OfferAPIDetailViewTests(APITestCase):
+    """
+    Test suite for the Offer detail API endpoint (GET /api/offers/{id}/).
+
+    This class focuses on retrieving a single offer, checking for correct data structure and
+    enforcing authentication requirements.
+    """
+    @classmethod
+    def setUp(cls):
+        """
+        Set up data for the detail view tests.
+        """
+        # A user who will own the offer and can be authenticated
+        cls.user = User.objects.create_user(username='testuser', password='password123')
+        
+        # A second, unauthenticated user to test access
+        cls.other_user = User.objects.create_user(username='otheruser', password='password123')
+        
+        # The offer we will try to retrieve
+        cls.offer = Offer.objects.create(
+            user=cls.user,
+            title="Detail Test Offer",
+            description="Description for detail test"
+        )
+        OfferDetail.objects.create(offer=cls.offer, title="Detail", price=150.00, delivery_time_days=5)
+        
+        # The URL for our specific offer
+        cls.url = reverse('offer-detail', kwargs={'pk':cls.offer.pk})
+        
+    def test_retrieve_offer_unauthenticated_fails_401(self):
+        """
+        Ensures that unauthenticated users cannot access the detail endpoint.
+
+        This test verifies that the `IsAuthenticated` permission is correctly enforced.
+        An attempt to access the endpoint without credentials should result in a 401 Unauthorized.
+        """
+        # Make a GET request without any authentication.
+        response = self.client.get(self.url)
+        
+        # Assert that the request was rejected with an Unauthorized status.
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+    
+    def test_retrieve_offer_authenticated_succeeds_200(self):
+        """
+        Ensures that any authenticated user can access the detail endpoint.
+        """
+        # Authenticate as a user (doesn't have to be the owner).
+        self.client.force_authenticate(user=self.other_user)
+        response = self.client.get(self.url)
+        
+        # Assert that the request was successful.
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # Assert that the correct offer was returned.
+        self.assertEqual(response.data['id'], self.offer.id)
+    
+    def test_has_correct_data_structure(self):
+        """
+        Verifies the integrity of the data structure for a single retrieved offer.
+
+        This test confirms that the `OfferRetrieveSerializer` is used and that the response
+        contains the correct fields, specifically ensuring that the nested `user_details` object
+        is NOT present, as per the requirements.
+        """
+        # Authenticate to access the endpoint.
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # Define the exact set of keys we expect in the response.
+        expected_keys = [
+            'id',
+            'user',
+            'title',
+            'image',
+            'description',
+            'created_at',
+            'updated_at',
+            'details',
+            'min_price',
+            'min_delivery_time',
+        ]
+        # `assertCountEqual` checks that the keys are the same, regardless of order.
+        self.assertCountEqual(response.data.keys(), expected_keys)
+        
+        # Explicitly check that 'user_details' is NOT in the response.
+        self.assertNotIn('user_details', response.data)
+        
+    def test_retrieve_non_existing_offer_fails_404(self):
+        """
+        Ensures that requesting an offer with a non-existent ID returns a 404 Not Found.
+        """
+        # Create a URL for an ID that does not exist (e.g., 999).
+        non_existing_url = reverse('offer-detail', kwargs={'pk': 999})
+            
+        # Authenticate the user to get past the permission check.
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(non_existing_url)
+        
+        # Assert that the server correctly returns a 404 Not Found status.
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        

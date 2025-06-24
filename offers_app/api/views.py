@@ -11,6 +11,7 @@ from .serializers import (
     OfferCreateUpdateSerializer,
     OfferDetailUrlSerializer,
     OfferResponseSerializer,
+    OfferRetrieveSerializer,
 )
 from .filters import OfferFilter
 from .permissions import IsBusinessUser
@@ -29,10 +30,12 @@ class OfferViewSet(viewsets.ModelViewSet):
         Instantiates and returns the list of permissions that this view requires.
         """
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            # Authentication is required for write actions
-            self.permission_classes = [IsBusinessUser ]
+            self.permission_classes = [IsBusinessUser]
+        elif self.action == 'retrieve':
+            # Die Anforderung für die Detailansicht ist IsAuthenticated
+            self.permission_classes = [IsAuthenticated]
         else:
-            # No authentication is required for read actions (list, retrieve)
+            # Die Anforderung für die Listenansicht ist AllowAny
             self.permission_classes = [AllowAny]
         return super().get_permissions()
 
@@ -50,8 +53,10 @@ class OfferViewSet(viewsets.ModelViewSet):
         Return the appropriate serializer class based on the request action.
         """
         if self.action in ['create', 'update', 'partial_update']:
-            return OfferCreateUpdateSerializer # create/post/update/patch
-        return OfferListSerializer  # list/retrieve
+            return OfferCreateUpdateSerializer
+        if self.action == 'retrieve':
+            return OfferRetrieveSerializer
+        return OfferListSerializer
     
     def perform_create(self, serializer):
         """

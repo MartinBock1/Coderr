@@ -156,3 +156,34 @@ class OfferListSerializer(serializers.ModelSerializer):
             'min_delivery_time',
             'user_details',  # The nested user object
         ]
+
+class OfferRetrieveSerializer(serializers.ModelSerializer):
+    """
+    Serializer for retrieving a single Offer instance.
+    Does not include the nested 'user_details' object, as per API spec.
+    """
+    # Calculated fields
+    min_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    min_delivery_time = serializers.IntegerField(read_only=True, source='min_delivery_time_days')
+    
+    # Related field for details
+    details = OfferDetailUrlSerializer(many=True, read_only=True)
+    
+    created_at =  serializers.DateTimeField(format="%Y-%m-%dT%H:%M:%SZ", read_only=True)
+    updated_at = serializers.DateTimeField(format="%Y-%m-%dT%H:%M:%SZ", read_only=True)
+    
+    class Meta:
+        model = Offer
+        fields = [
+            'id',
+            'user',  # The user's ID
+            'title',
+            'image',
+            'description',
+            'created_at',
+            'updated_at',
+            'details',  # The list of detail URLs
+            'min_price',
+            'min_delivery_time',
+            # 'user_details' is intentionally omitted here.
+        ]
