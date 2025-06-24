@@ -122,6 +122,15 @@ class OfferAPIWithDataTests(APITestCase):
             description="An advanced solution."
         )
         OfferDetail.objects.create(offer=cls.offer2, price=500.00, delivery_time_days=20)
+        
+        # Add a third offer for pagination/filtering testing, also by user1
+        # min_price=50.00, min_delivery_time=3
+        cls.offer3 = Offer.objects.create(
+            user=cls.user1,
+            title="Simple Logo",
+            description="A quick logo design."
+        )
+        OfferDetail.objects.create(offer=cls.offer3, title="Basic", price=50.00, delivery_time_days=3)
 
     def test_filter_by_creator_id(self):
         """
@@ -172,7 +181,7 @@ class OfferAPIWithDataTests(APITestCase):
 
         # Basic sanity checks: the request should succeed and return all items.
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['count'], 2)
+        self.assertEqual(response.data['count'], 3)
 
         # To make the test robust, find a specific offer by its title rather than relying on the
         # order of results (which could change).
@@ -225,11 +234,13 @@ class OfferAPIWithDataTests(APITestCase):
 
         # Assert that the API correctly returns exactly one result, as user1
         # only created one offer in the test setup.
-        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(response.data['count'], 2)
 
         # Assert that the title of the single returned offer is the one we expect for the offer
         # created by user1.
-        self.assertEqual(response.data['results'][0]['title'], "Fast Website")
+        titles_in_response = {item['title'] for item in response.data['results']}
+        expected_titles = {"Fast Website", "Simple Logo"}
+        self.assertEqual(titles_in_response, expected_titles)
 
     def test_filter_by_min_price(self):
         """
@@ -285,10 +296,12 @@ class OfferAPIWithDataTests(APITestCase):
         response = self.client.get(url, {'max_delivery_time': 15})
 
         # Assert that only one offer meets the criteria.
-        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(response.data['count'], 2)
 
         # Assert that the correct offer ("Fast Website") is the one returned.
-        self.assertEqual(response.data['results'][0]['title'], "Fast Website")
+        titles_in_response = {item['title'] for item in response.data['results']}
+        expected_titles = {"Fast Website", "Simple Logo"}
+        self.assertEqual(titles_in_response, expected_titles)
 
     def test_search_by_title_and_description(self):
         """
@@ -339,23 +352,52 @@ class OfferAPIWithDataTests(APITestCase):
         response = self.client.get(url, {'ordering': 'min_price'})
         results = response.data['results']
 
-        # Assert that the first result is the cheaper offer.
-        self.assertEqual(results[0]['title'], "Fast Website")  # Price 100
-
-        # Assert that the second result is the more expensive offer.
-        self.assertEqual(results[1]['title'], "Complex App")  # Price 500
+        self.assertEqual(results[0]['title'], "Simple Logo")    # Price 50
+        self.assertEqual(results[1]['title'], "Fast Website")  # Price 100
+        self.assertEqual(results[2]['title'], "Complex App")   # Price 500
 
         # --- Test 2: Descending Order ---
         # Send a new GET request to order by min_price in descending order.
         response = self.client.get(url, {'ordering': '-min_price'})
         results = response.data['results']
 
-        # Assert that the first result is now the more expensive offer.
         self.assertEqual(results[0]['title'], "Complex App")    # Price 500
-
-        # Assert that the second result is now the cheaper offer.
         self.assertEqual(results[1]['title'], "Fast Website")  # Price 100
+        self.assertEqual(results[2]['title'], "Simple Logo")    # Price 50
 
+    def test_pagination_works_correctly(self):
+        """
+        Verifies that pagination parameters correctly limit the number of results.
+        """
+        # Get the URL for the offer list endpoint.
+        url = reverse('offer-list')
+
+        # Send a GET request with a page_size of 1.
+        response = self.client.get(url, {'page_size': 1})
+
+        # --- Assertions for Pagination Structure ---
+        # The total count should still be 3 (all offers in the DB).
+        self.assertEqual(response.data['count'], 3)
+        
+        # The number of results in this specific response should be 1.
+        self.assertEqual(len(response.data['results']), 1)
+
+        # There should be a 'next' URL, as there are more pages.
+        self.assertIsNotNone(response.data['next'])
+        
+        # There should not be a 'previous' URL, as this is the first page.
+        self.assertIsNone(response.data['previous'])
+
+        # --- Test the second page ---
+        # Get the URL for the second page from the 'next' link.
+        next_page_url = response.data['next']
+        response_page_2 = self.client.get(next_page_url)
+        
+        # The number of results on the second page should also be 1.
+        self.assertEqual(len(response_page_2.data['results']), 1)
+        
+        # The second page should have a 'previous' link.
+        self.assertIsNotNone(response_page_2.data['previous'])
 
 # ====================================================================
 # CLASS 3: Tests for creating (POST) offers
