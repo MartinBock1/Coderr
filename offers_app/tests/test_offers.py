@@ -644,20 +644,22 @@ class OfferAPIDetailViewTests(APITestCase):
     Test suite for the Offer detail API endpoint (GET /api/offers/{id}/).
 
     This class focuses on retrieving a single offer, checking for correct data structure and
-    enforcing authentication requirements.
+    enforcing authentication requirements. It uses setUpTestData for efficient, one-time database
+    setup for all tests in this class.
     """
     @classmethod
     def setUp(cls):
         """
-        Set up data for the detail view tests.
+         Set up non-modified objects used by all test methods in this class.
+        `setUpTestData` is run once for the entire test class.
         """
-        # A user who will own the offer and can be authenticated
+        # Create a user who will own the offer and can be authenticated.
         cls.user = User.objects.create_user(username='testuser', password='password123')
         
-        # A second, unauthenticated user to test access
+        # Create a second, authenticated user to test access rules.
         cls.other_user = User.objects.create_user(username='otheruser', password='password123')
         
-        # The offer we will try to retrieve
+        # Create the specific Offer instance that will be targeted by the tests.
         cls.offer = Offer.objects.create(
             user=cls.user,
             title="Detail Test Offer",
@@ -665,7 +667,7 @@ class OfferAPIDetailViewTests(APITestCase):
         )
         OfferDetail.objects.create(offer=cls.offer, title="Detail", price=150.00, delivery_time_days=5)
         
-        # The URL for our specific offer
+        # Store the URL for the detail view of the created offer.
         cls.url = reverse('offer-detail', kwargs={'pk':cls.offer.pk})
         
     def test_retrieve_offer_unauthenticated_fails_401(self):
@@ -684,6 +686,9 @@ class OfferAPIDetailViewTests(APITestCase):
     def test_retrieve_offer_authenticated_succeeds_200(self):
         """
         Ensures that any authenticated user can access the detail endpoint.
+        
+        This test confirms that access is not restricted to the owner, as per the `IsAuthenticated`
+        permission rule for this action.
         """
         # Authenticate as a user (doesn't have to be the owner).
         self.client.force_authenticate(user=self.other_user)
@@ -700,8 +705,8 @@ class OfferAPIDetailViewTests(APITestCase):
         Verifies the integrity of the data structure for a single retrieved offer.
 
         This test confirms that the `OfferRetrieveSerializer` is used and that the response
-        contains the correct fields, specifically ensuring that the nested `user_details` object
-        is NOT present, as per the requirements.
+        contains the correct set of fields, specifically ensuring that the nested `user_details`
+        object is NOT present, as per the API specification for this endpoint.
         """
         # Authenticate to access the endpoint.
         self.client.force_authenticate(user=self.user)
@@ -749,18 +754,25 @@ class OfferAPIDetailViewTests(APITestCase):
 class OfferAPIPatchTests(APITestCase):
     """
     Test suite for updating an Offer via PATCH /api/offers/{id}/.
+
+    This class verifies ownership permissions and the logic for partially updating both the main
+    offer and its nested details. It uses a `setUp` method because each test modifies the database
+    state.
     """
     def setUp(self):
-        """Set up users and an offer to be updated."""
-        # The user who owns the offer
+        """
+        Set up a fresh state for each test method.
+        This includes an owner, a non-owner, and a complete offer.
+        """
+        # The user who owns the offer to be updated.
         self.owner = User.objects.create_user(username='owner', password='password123')
         UserProfile.objects.create(user=self.owner, type='business')
         
-        # A different user who is also a business user but not the owner
+        # A different user, to test that non-owners are forbidden from updating
         self.non_owner = User.objects.create_user(username='nonowner', password='password123')
         UserProfile.objects.create(user=self.non_owner, type='business')
         
-        # Create a full offer with 3 details
+        # Create a full offer with 3 details to be used in patch tests.
         self.offer = Offer.objects.create(
             user=self.owner,
             title="Original Title",
@@ -773,19 +785,25 @@ class OfferAPIPatchTests(APITestCase):
         self.detail3 = OfferDetail.objects.create(
             offer=self.offer, title="Premium", offer_type="premium", price=300, delivery_time_days=5)
 
+        # The URL for the specific offer being tested.
         self.url = reverse('offer-detail', kwargs={'pk': self.offer.pk})
         
     def test_owner_can_patch_offer_using_offer_type(self):
         """
         Verifies the owner can partially update the offer using 'offer_type' to match details.
+        
+        This is the "happy path" test for PATCH, ensuring that a top-level field and a nested field
+        can be updated in a single request, while other data remains untouched.
         """
+        # Authenticate as the offer's owner.
         self.client.force_authenticate(user=self.owner)
         
+        # The payload contains a change for the top-level title and one nested detail.
         patch_payload = {
             "title": "Updated Title",
             "details": [
                 {
-                    "offer_type": "standard",
+                    "offer_type": "standard",  # Target the 'Standard' package by its type
                     "price": "250.50",
                     "revisions": 99
                 }
@@ -795,21 +813,29 @@ class OfferAPIPatchTests(APITestCase):
         response = self.client.patch(self.url, patch_payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
         
+        # Refresh the instances from the database to ensure we're checking persisted data.
         self.offer.refresh_from_db()
         self.detail1.refresh_from_db()
         self.detail2.refresh_from_db()
         self.detail3.refresh_from_db()
 
+         # Assert that the top-level field was updated.
         self.assertEqual(self.offer.title, "Updated Title")
+        
+        # Assert that the targeted nested detail ('standard') was updated.
         self.assertEqual(self.detail2.price, 250.50)
         self.assertEqual(self.detail2.revisions, 99)
+        
+        # Assert that other details were NOT changed.
         self.assertEqual(self.detail1.price, 100)
         self.assertEqual(self.detail3.price, 300)
 
     def test_patch_by_non_owner_fails_403(self):
         """
         Verifies that a user who is not the owner cannot patch the offer.
+        This tests the `IsOwnerOrReadOnly` permission.
         """
+        # Authenticate as a user who does not own the offer.
         self.client.force_authenticate(user=self.non_owner)
         patch_payload = {"title": "Attempted Update"}
         response = self.client.patch(self.url, patch_payload, format='json')
@@ -818,6 +844,7 @@ class OfferAPIPatchTests(APITestCase):
     def test_patch_unauthenticated_fails_401(self):
         """
         Verifies that an unauthenticated user cannot patch the offer.
+        This tests the primary `IsAuthenticated` check.
         """
         patch_payload = {"title": "Attempted Update"}
         response = self.client.patch(self.url, patch_payload, format='json')
@@ -825,11 +852,12 @@ class OfferAPIPatchTests(APITestCase):
     
     def test_patch_without_offer_type_in_detail_fails_400(self):
         """
-        Verifies that patching a detail without providing 'offer_type' fails.
+        Verifies that patching a detail without providing its 'offer_type' fails.
+        This tests the custom validation logic in the serializer's update method.
         """
         self.client.force_authenticate(user=self.owner)
         patch_payload = {
-            "details": [{"price": "99.00"}]
+            "details": [{"price": "99.00"}] # 'offer_type' is missing, so it's impossible to match.
         }
         response = self.client.patch(self.url, patch_payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -842,9 +870,13 @@ class OfferAPIPatchTests(APITestCase):
 class OfferAPIDeleteTests(APITestCase):
     """
     Test suite for deleting an Offer via DELETE /api/offers/{id}/.
+    This class verifies that only the owner of an offer can delete it.
     """
     def setUp(self):
-        """Set up users and an offer for delete action tests."""
+        """
+        Set up a fresh state for each test method.
+        Includes an owner, a non-owner, and an offer to be deleted.
+        """
         # A user who owns the offer
         self.owner = User.objects.create_user(username='owner', password='password123')
         
@@ -858,6 +890,7 @@ class OfferAPIDeleteTests(APITestCase):
     def test_owner_can_delete_offer(self):
         """
         Verifies that the owner of the offer can successfully delete it.
+        This is the "happy path" for the DELETE action.
         """
         # Ensure the offer exists before the test
         self.assertTrue(Offer.objects.filter(pk=self.offer.pk).exists())
@@ -866,16 +899,18 @@ class OfferAPIDeleteTests(APITestCase):
         self.client.force_authenticate(user=self.owner)
         response = self.client.delete(self.url)
         
-        # 1. Check for a 204 No Content response
+        # 1. Check for a 204 No Content response, indicating success.
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         
-        # 2. Verify the offer no longer exists in the database
+        # 2. Verify the offer no longer exists in the database.
         self.assertFalse(Offer.objects.filter(pk=self.offer.pk).exists())
 
     def test_non_owner_cannot_delete_offer(self):
         """
         Verifies that a user who is not the owner is forbidden to delete the offer.
+        This tests the `IsOwnerOrReadOnly` permission for the DELETE action.
         """
+        # Authenticate as the non-owner.
         self.client.force_authenticate(user=self.non_owner)
         response = self.client.delete(self.url)
         
@@ -889,6 +924,7 @@ class OfferAPIDeleteTests(APITestCase):
         """
         Verifies that an unauthenticated user receives a 401 Unauthorized error.
         """
+        # Make the request without authentication.
         response = self.client.delete(self.url)
         
         # Check for a 401 Unauthorized response
@@ -901,6 +937,7 @@ class OfferAPIDeleteTests(APITestCase):
         """
         Verifies that attempting to delete a non-existent offer returns a 404 Not Found.
         """
+        # Create a URL for an ID that is highly unlikely to exist.
         non_existent_url = reverse('offer-detail', kwargs={'pk': 9999})
         
         # Authenticate as the owner to get past any initial auth checks

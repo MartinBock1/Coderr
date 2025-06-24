@@ -9,7 +9,8 @@ from offers_app.models import Offer, OfferDetail
 from .serializers import (
     OfferListSerializer,
     OfferCreateUpdateSerializer,
-    OfferDetailUrlSerializer,
+    OfferDetailReadSerializer,
+    # OfferDetailUrlSerializer,
     OfferResponseSerializer,
     OfferRetrieveSerializer,
 )
@@ -115,4 +116,4 @@ class OfferViewSet(viewsets.ModelViewSet):
 # Wir brauchen einen minimalen ViewSet für OfferDetail, damit die Hyperlinks funktionieren
 class OfferDetailViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = OfferDetail.objects.all()
-    serializer_class = OfferDetailUrlSerializer  # Verwenden Sie einen passenden Serializer
+    serializer_class = OfferDetailReadSerializer  # Verwenden Sie einen passenden Serializer

@@ -24,11 +24,9 @@ class OfferDetailReadSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'title',
-            'price',
-            'delivery_time_in_days',
-            'description',
-            'image',
             'revisions',
+            'delivery_time_in_days',
+            'price',
             'features',
             'offer_type',
         ]
