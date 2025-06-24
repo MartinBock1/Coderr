@@ -16,15 +16,20 @@ class OfferDetailReadSerializer(serializers.ModelSerializer):
     """
     Serializes a complete OfferDetail object for read operations, including all its fields.
     """
+    delivery_time_in_days = serializers.IntegerField(source='delivery_time_days')
+    
     class Meta:
         model = OfferDetail
         fields = [
             'id', 
             'title', 
             'price', 
-            'delivery_time_days', 
-            # Fügen Sie hier alle anderen Felder aus Ihrem OfferDetail-Modell hinzu,
-            # z.B. 'revisions', 'features', 'offer_type', 'description'
+            'delivery_time_in_days', 
+            'description',
+            'image',
+            'revisions', 
+            'features', 
+            'offer_type', 
         ]
 
 class OfferResponseSerializer(serializers.ModelSerializer):
@@ -51,9 +56,20 @@ class OfferResponseSerializer(serializers.ModelSerializer):
 
 class OfferDetailCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating OfferDetails nested within an Offer."""
+    delivery_time_in_days = serializers.IntegerField(source='delivery_time_days')
+    
     class Meta:
         model = OfferDetail
-        fields = ['price', 'delivery_time_days']
+        fields = [
+            'title',
+            'price',
+            'delivery_time_in_days',
+            'description',
+            'image',
+            'revisions',
+            'features',
+            'offer_type'
+        ]
 
 class OfferCreateUpdateSerializer(serializers.ModelSerializer):
     """Serializer fpr creating and updating Offer instances with nested details"""

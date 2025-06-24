@@ -442,14 +442,6 @@ class OfferAPIPostTests(APITestCase):
 
         # Send a POST request to the offer creation endpoint with a valid payload.
         response = self.client.post(self.url, self.valid_payload, format='json')
-        
-        # --- DEBUG-AUSGABE ---
-        import json
-        if response.status_code == 400:
-            print("\n--- VALIDATION ERROR ---")
-            print(json.dumps(response.data, indent=2))
-            print("------------------------\n")
-        # -----------------------------
 
         # --- Assertions ---
 
