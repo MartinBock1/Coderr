@@ -14,9 +14,11 @@ from .serializers import (
 )
 from .filters import OfferFilter
 from .permissions import IsBusinessUser
+from .pagination import StandardResultsSetPagination
 
 
 class OfferViewSet(viewsets.ModelViewSet):
+    pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = OfferFilter
     search_fields = ['title', 'description']
