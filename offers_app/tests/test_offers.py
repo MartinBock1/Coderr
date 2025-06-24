@@ -835,5 +835,78 @@ class OfferAPIPatchTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("must have an 'offer_type'", str(response.data))
         
+
+# ====================================================================
+# CLASS 6: Tests for deleting an offer (DELETE)
+# ====================================================================
+class OfferAPIDeleteTests(APITestCase):
+    """
+    Test suite for deleting an Offer via DELETE /api/offers/{id}/.
+    """
+    def setUp(self):
+        """Set up users and an offer for delete action tests."""
+        # A user who owns the offer
+        self.owner = User.objects.create_user(username='owner', password='password123')
         
+        # A different authenticated user who is NOT the owner
+        self.non_owner = User.objects.create_user(username='nonowner', password='password123')
+        
+        # The offer to be deleted, created by 'owner'
+        self.offer = Offer.objects.create(user=self.owner, title="Offer to be deleted")
+        self.url = reverse('offer-detail', kwargs={'pk': self.offer.pk})
+
+    def test_owner_can_delete_offer(self):
+        """
+        Verifies that the owner of the offer can successfully delete it.
+        """
+        # Ensure the offer exists before the test
+        self.assertTrue(Offer.objects.filter(pk=self.offer.pk).exists())
+        
+        # Authenticate as the owner
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.delete(self.url)
+        
+        # 1. Check for a 204 No Content response
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        
+        # 2. Verify the offer no longer exists in the database
+        self.assertFalse(Offer.objects.filter(pk=self.offer.pk).exists())
+
+    def test_non_owner_cannot_delete_offer(self):
+        """
+        Verifies that a user who is not the owner is forbidden to delete the offer.
+        """
+        self.client.force_authenticate(user=self.non_owner)
+        response = self.client.delete(self.url)
+        
+        # Check for a 403 Forbidden response
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        
+        # Verify the offer still exists in the database
+        self.assertTrue(Offer.objects.filter(pk=self.offer.pk).exists())
+
+    def test_unauthenticated_user_cannot_delete_offer(self):
+        """
+        Verifies that an unauthenticated user receives a 401 Unauthorized error.
+        """
+        response = self.client.delete(self.url)
+        
+        # Check for a 401 Unauthorized response
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        
+        # Verify the offer still exists
+        self.assertTrue(Offer.objects.filter(pk=self.offer.pk).exists())
+
+    def test_delete_non_existent_offer_returns_404(self):
+        """
+        Verifies that attempting to delete a non-existent offer returns a 404 Not Found.
+        """
+        non_existent_url = reverse('offer-detail', kwargs={'pk': 9999})
+        
+        # Authenticate as the owner to get past any initial auth checks
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.delete(non_existent_url)
+        
+        # Check for a 404 Not Found response
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)        
         
