@@ -946,4 +946,85 @@ class OfferAPIDeleteTests(APITestCase):
         
         # Check for a 404 Not Found response
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)        
+
+
+# ====================================================================
+# CLASS 7: Tests for retrieving a single offer detail (GET)
+# ====================================================================
+class OfferDetailAPIRetrieveTests(APITestCase):
+    """
+    Test suite for the OfferDetail detail endpoint (GET /api/offerdetails/{id}/).
+    """
+    @classmethod
+    def setUpTestData(cls):
+        """Set up a single OfferDetail to be retrieved in tests."""
+        user = User.objects.create_user(username='detailtestuser')
+        offer = Offer.objects.create(user=user, title="Parent Offer")
         
+        # This is the specific object we will try to retrieve
+        cls.offer_detail = OfferDetail.objects.create(
+            offer=offer,
+            title="Test Detail",
+            price=99.99,
+            delivery_time_days=3,
+            revisions=1,
+            features=["Feature A"],
+            offer_type="basic"
+        )
+        
+        # The URL for our specific offer detail
+        cls.url = reverse('offerdetail-detail', kwargs={'pk': cls.offer_detail.pk})
+
+    def test_retrieve_offer_detail_succeeds_200(self):
+        """
+        Verifies that an OfferDetail can be successfully retrieved by anyone.
+        This also implicitly tests the `AllowAny` permission.
+        """
+        # No authentication is needed
+        response = self.client.get(self.url)
+        
+        # Assert that the request was successful
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # Assert that the correct object was returned
+        self.assertEqual(response.data['id'], self.offer_detail.id)
+        self.assertEqual(response.data['title'], "Test Detail")
+
+    def test_retrieve_offer_detail_has_correct_data_structure(self):
+        """
+        Verifies that the response contains the complete and correct set of fields.
+        This confirms that the `OfferDetailReadSerializer` is being used correctly.
+        """
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Define the exact set of keys we expect in the response
+        # This should match the fields in OfferDetailReadSerializer
+        expected_keys = [
+            'id',
+            'title',
+            'revisions',
+            'delivery_time_in_days',
+            'price',
+            'features',
+            'offer_type',
+        ]
+        
+        # `assertCountEqual` checks that the keys are the same, regardless of order
+        self.assertCountEqual(response.data.keys(), expected_keys)
+        
+        # Spot-check a specific value from the setup data
+        self.assertEqual(float(response.data['price']), 99.99)
+        self.assertEqual(response.data['features'], ["Feature A"])
+
+    def test_retrieve_non_existent_offer_detail_fails_404(self):
+        """
+        Ensures that requesting an offer detail with a non-existent ID returns a 404 Not Found.
+        """
+        # Create a URL for an ID that does not exist
+        non_existent_url = reverse('offerdetail-detail', kwargs={'pk': 9999})
+        response = self.client.get(non_existent_url)
+        
+        # Assert that the server correctly returns a 404 Not Found status
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+ 
