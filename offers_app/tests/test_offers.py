@@ -11,8 +11,6 @@ User = get_user_model()
 # ====================================================================
 # CLASS 1: Tests on an empty database
 # ====================================================================
-
-
 class OfferAPINoDataTests(APITestCase):
     """
     Test suite for the Offer API endpoints in a clean state.
