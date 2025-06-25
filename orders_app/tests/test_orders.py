@@ -6,6 +6,7 @@ from django.contrib.auth.models import User
 
 from ..models import Order
 from offers_app.models import Offer, OfferDetail
+from user_auth_app.models import UserProfile
 
 # ====================================================================
 # CLASS 1: Tests on an empty database
@@ -37,6 +38,70 @@ class OrderListAPITests(APITestCase):
         self.user_b = User.objects.create_user(username='userB', password='password123')
         self.user_c = User.objects.create_user(username='userC', password='password123')
         
+        self.order1 = Order.objects.create(customer_user=self.user_a, business_user=self.user_b, title='Order for A', price=100)
+        self.order2 = Order.objects.create(customer_user=self.user_c, business_user=self.user_a, title='Order by A', price=200)
+        self.order3 = Order.objects.create(customer_user=self.user_b, business_user=self.user_c, title='Order by B', price=300)
+        Order.objects.create(customer_user=self.user_b, business_user=self.user_c, title='Irrelevant Order', price=300)
+    
+    def test_user_only_sees_their_own_orders(self):
+        
+        url = reverse('order-list')
+        self.client.force_authenticate(user=self.user_a)
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+        
+        response_ids = {item['id'] for item in response.data}
+        expected_ids = {self.order1.id, self.order2.id}
+        self.assertEqual(response_ids, expected_ids)
+
+    def test_customer_can_retrieve_own_order_detail(self):
+        url= reverse('order-detail', kwargs={'pk':self.order1.id})
+        self.client.force_authenticate(user=self.user_a)
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['id'], self.order1.id)
+        
+        created_at_str = response.data['created_at']
+        self.assertTrue(created_at_str.endswith('Z'))
+        self.assertNotIn('.', created_at_str)
+        from datetime import datetime
+        try:
+            datetime.strptime(created_at_str, "%Y-%m-%dT%H:%M:%SZ")
+        except ValueError:
+            self.fail("created_at format is incorrect. Expected YYYY-MM-DDTHH:MM:SSZ")
+        
+    def test_business_partner_can_retrieve_own_order_detail(self):
+        url = reverse('order-detail', kwargs={'pk': self.order2.id})
+        self.client.force_authenticate(user=self.user_a)
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['id'], self.order2.id)
+        
+    def test_user_cannot_retrieve_other_users_order(self):
+        url = reverse('order-detail', kwargs={'pk': self.order3.id})
+        self.client.force_authenticate(user=self.user_a)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)  
+    
+    
+# ====================================================================
+# CLASS 3: Tests for creating (POST) orders
+# ====================================================================
+class OrderAPIPostTests(APITestCase):
+    def setUp(self):
+        self.user_a = User.objects.create_user(username='userA', password='password123')
+        UserProfile.objects.create(user=self.user_a, type='customer')
+        
+        self.user_b = User.objects.create_user(username='userB', password='password123')
+        UserProfile.objects.create(user=self.user_b, type='business')
+        
+        self.user_c = User.objects.create_user(username='userC', password='password123')
+        UserProfile.objects.create(user=self.user_c, type='customer')
+        
         self.main_offer = Offer.objects.create(
             user=self.user_b,
             title="Professional Logo Design"
@@ -51,57 +116,6 @@ class OrderListAPITests(APITestCase):
             features=["3 Concepts", "Vector File"],
             offer_type=OfferDetail.OfferType.STANDARD
         )
-    
-    def test_user_only_sees_their_own_orders(self):
-        order1 = Order.objects.create(customer_user=self.user_a, business_user=self.user_b, title='Order for A', price=100)
-        order2 = Order.objects.create(customer_user=self.user_c, business_user=self.user_a, title='Order by A', price=200)
-        Order.objects.create(customer_user=self.user_b, business_user=self.user_c, title='Irrelevant Order', price=300)
-        
-        url = reverse('order-list')
-        self.client.force_authenticate(user=self.user_a)
-        response = self.client.get(url)
-        
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)
-        
-        response_ids = {item['id'] for item in response.data}
-        expected_ids = {order1.id, order2.id}
-        self.assertEqual(response_ids, expected_ids)
-
-    def test_customer_can_retrieve_own_order_detail(self):
-        order1 = Order.objects.create(customer_user=self.user_a, business_user=self.user_b, title='Order for A', price=100)
-        url= reverse('order-detail', kwargs={'pk':order1.id})
-        self.client.force_authenticate(user=self.user_a)
-        response = self.client.get(url)
-        
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['id'], order1.id)
-        
-        created_at_str = response.data['created_at']
-        self.assertTrue(created_at_str.endswith('Z'))
-        self.assertNotIn('.', created_at_str)
-        from datetime import datetime
-        try:
-            datetime.strptime(created_at_str, "%Y-%m-%dT%H:%M:%SZ")
-        except ValueError:
-            self.fail("created_at format is incorrect. Expected YYYY-MM-DDTHH:MM:SSZ")
-        
-    def test_business_partner_can_retrieve_own_order_detail(self):
-        order2 = Order.objects.create(customer_user=self.user_c, business_user=self.user_a, title='Order by A', price=200)
-        url = reverse('order-detail', kwargs={'pk': order2.id})
-        self.client.force_authenticate(user=self.user_a)
-        response = self.client.get(url)
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['id'], order2.id)
-        
-    def test_user_cannot_retrieve_other_users_order(self):
-        order3 = Order.objects.create(customer_user=self.user_b, business_user=self.user_c, title='Order by B', price=300)
-        url = reverse('order-detail', kwargs={'pk': order3.id})
-        self.client.force_authenticate(user=self.user_a)
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)  
-        
     def test_create_order_from_offer_detail_success(self):
         url = reverse('order-list')
         self.client.force_authenticate(user=self.user_a)
@@ -137,3 +151,70 @@ class OrderListAPITests(APITestCase):
         request_data = {}
         response = self.client.post(url, request_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+# ====================================================================
+# CLASS 4: Tests for updating (PATCH) orders
+# ====================================================================
+class OrderAPIPatchTests(APITestCase):
+    def setUp(self):
+        self.user_a = User.objects.create_user(username='customerA', password='password123')
+        UserProfile.objects.create(user=self.user_a, type='customer')
+         
+        self.user_b = User.objects.create_user(username='businessB', password='password123')
+        UserProfile.objects.create(user=self.user_b, type='business')
+        
+    def test_business_user_can_update_status(self):
+        order = Order.objects.create(
+            customer_user=self.user_a, 
+            business_user=self.user_b,
+            title="Test Order",
+            price=100
+        )
+        url = reverse('order-detail', kwargs={'pk': order.id}) 
+        self.client.force_authenticate(user=self.user_b)
+
+        response = self.client.patch(url, {'status': 'completed'}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['status'], 'completed')
+        self.assertEqual(response.data['id'], order.id)        
+        self.assertIn('title', response.data)
+        self.assertIn('price', response.data)
+
+        order.refresh_from_db()
+        self.assertEqual(order.status, 'completed')
+
+    def test_customer_cannot_update_status(self):
+        order = Order.objects.create(
+            customer_user=self.user_a, 
+            business_user=self.user_b,
+            title="Test Order",
+            price=100
+        )
+        url = reverse('order-detail', kwargs={'pk': order.id})
+        self.client.force_authenticate(user=self.user_a)
+
+        response = self.client.patch(url, {'status': 'completed'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_business_user_cannot_update_other_fields(self):
+        order = Order.objects.create(
+            customer_user=self.user_a, 
+            business_user=self.user_b,
+            title="Test Order",
+            price=100.00
+        )
+        url = reverse('order-detail', kwargs={'pk': order.id})
+        self.client.force_authenticate(user=self.user_b)
+
+        update_data = {'status': 'completed', 'price': 999.00}
+        response = self.client.patch(url, update_data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        
+        order.refresh_from_db()
+        self.assertEqual(order.price, 100.00)
+        self.assertEqual(order.status, 'in_progress')
+        
+        
+          

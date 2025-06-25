@@ -3,24 +3,34 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from ..models import Order
-from .serializers import OrderSerializer, CreateOrderSerializer
+from .serializers import OrderSerializer, CreateOrderSerializer, OrderStatusUpdateSerializer
+from .permissions import IsBusinessUserAndOwner
 from offers_app.models import OfferDetail
 
 
 class OrderViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
     pagination_class = None
+    
+    def get_permissions(self):
+        if self.action in ['update', 'partial_update']:
+            self.permission_classes = [IsAuthenticated, IsBusinessUserAndOwner]
+        else:
+            self.permission_classes = [IsAuthenticated]
+        return super().get_permissions()
     
     def get_queryset(self):
         user = self.request.user
         return Order.objects.filter(
             Q(customer_user=user) | Q (business_user=user)
         )
+
     def get_serializer_class(self):
+        if self.action in ['update', 'partial_update']:
+            return OrderStatusUpdateSerializer
         if self.action == 'create':
             return CreateOrderSerializer
         return OrderSerializer
-    
+
     def create(self, request, *args, **kwargs):
         input_serializer = self.get_serializer(data=request.data)
         input_serializer.is_valid(raise_exception=True)
@@ -51,3 +61,14 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         output_serializer = OrderSerializer(order)
         return Response(output_serializer.data, status=status.HTTP_201_CREATED)
+    
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        
+        self.perform_update(serializer)
+        
+        output_serializer = OrderSerializer(instance)
+        
+        return Response(output_serializer.data)
