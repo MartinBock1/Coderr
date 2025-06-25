@@ -83,7 +83,7 @@ class OfferAPIWithDataTests(APITestCase):
     ensuring a consistent and known state for every test run within this suite.
     """
     @classmethod
-    def setUpTestData(cls):
+    def setUp(cls):
         """
         Sets up a predictable database state once for all tests in this class.
 
@@ -111,8 +111,8 @@ class OfferAPIWithDataTests(APITestCase):
             title="Fast Website",
             description="A quick solution."
         )
-        OfferDetail.objects.create(offer=cls.offer1, price=100.00, delivery_time_days=7)
-        OfferDetail.objects.create(offer=cls.offer1, price=200.00, delivery_time_days=10)
+        OfferDetail.objects.create(offer=cls.offer1, price=100.00, delivery_time_in_days=7)
+        OfferDetail.objects.create(offer=cls.offer1, price=200.00, delivery_time_in_days=10)
 
         # Create the second offer, associated with user2.
         # This offer has a minimum price of 500.00 and a minimum delivery time of 20 days.
@@ -121,7 +121,7 @@ class OfferAPIWithDataTests(APITestCase):
             title="Complex App",
             description="An advanced solution."
         )
-        OfferDetail.objects.create(offer=cls.offer2, price=500.00, delivery_time_days=20)
+        OfferDetail.objects.create(offer=cls.offer2, price=500.00, delivery_time_in_days=20)
         
         # Add a third offer for pagination/filtering testing, also by user1
         # min_price=50.00, min_delivery_time=3
@@ -130,7 +130,7 @@ class OfferAPIWithDataTests(APITestCase):
             title="Simple Logo",
             description="A quick logo design."
         )
-        OfferDetail.objects.create(offer=cls.offer3, title="Basic", price=50.00, delivery_time_days=3)
+        OfferDetail.objects.create(offer=cls.offer3, title="Basic", price=50.00, delivery_time_in_days=3)
 
     def test_filter_by_creator_id(self):
         """
@@ -665,7 +665,7 @@ class OfferAPIDetailViewTests(APITestCase):
             title="Detail Test Offer",
             description="Description for detail test"
         )
-        OfferDetail.objects.create(offer=cls.offer, title="Detail", price=150.00, delivery_time_days=5)
+        OfferDetail.objects.create(offer=cls.offer, title="Detail", price=150.00, delivery_time_in_days=5)
         
         # Store the URL for the detail view of the created offer.
         cls.url = reverse('offer-detail', kwargs={'pk':cls.offer.pk})
@@ -733,6 +733,10 @@ class OfferAPIDetailViewTests(APITestCase):
         # Explicitly check that 'user_details' is NOT in the response.
         self.assertNotIn('user_details', response.data)
         
+        # Verify that the 'details' are indeed hyperlinks and NOT full objects.
+        self.assertIn('url', response.data['details'][0])
+        self.assertNotIn('price', response.data['details'][0])
+        
     def test_retrieve_non_existing_offer_fails_404(self):
         """
         Ensures that requesting an offer with a non-existent ID returns a 404 Not Found.
@@ -779,11 +783,11 @@ class OfferAPIPatchTests(APITestCase):
             description="Original Description"
         )
         self.detail1 = OfferDetail.objects.create(
-            offer=self.offer, title="Basic", offer_type="basic", price=100, delivery_time_days=10)
+            offer=self.offer, title="Basic", offer_type="basic", price=100, delivery_time_in_days=10)
         self.detail2 = OfferDetail.objects.create(
-            offer=self.offer, title="Standard", offer_type="standard", price=200, delivery_time_days=7)
+            offer=self.offer, title="Standard", offer_type="standard", price=200, delivery_time_in_days=7)
         self.detail3 = OfferDetail.objects.create(
-            offer=self.offer, title="Premium", offer_type="premium", price=300, delivery_time_days=5)
+            offer=self.offer, title="Premium", offer_type="premium", price=300, delivery_time_in_days=5)
 
         # The URL for the specific offer being tested.
         self.url = reverse('offer-detail', kwargs={'pk': self.offer.pk})
@@ -966,7 +970,7 @@ class OfferDetailAPIRetrieveTests(APITestCase):
             offer=offer,
             title="Test Detail",
             price=99.99,
-            delivery_time_days=3,
+            delivery_time_in_days=3,
             revisions=1,
             features=["Feature A"],
             offer_type="basic"
