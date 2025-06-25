@@ -1,7 +1,7 @@
 from django.db.models import Q
 from rest_framework import viewsets, status
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from ..models import Order
 from .serializers import OrderSerializer, CreateOrderSerializer, OrderStatusUpdateSerializer
 from .permissions import IsBusinessUserAndOwner
@@ -12,7 +12,9 @@ class OrderViewSet(viewsets.ModelViewSet):
     pagination_class = None
     
     def get_permissions(self):
-        if self.action in ['update', 'partial_update']:
+        if self.action == 'destroy':
+            self.permission_classes = [IsAdminUser]
+        elif self.action in ['update', 'partial_update']:
             self.permission_classes = [IsAuthenticated, IsBusinessUserAndOwner]
         else:
             self.permission_classes = [IsAuthenticated]
