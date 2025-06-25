@@ -1,7 +1,9 @@
+from django.contrib.auth.models import User
 from django.db.models import Q
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.views import APIView
 from ..models import Order
 from .serializers import OrderSerializer, CreateOrderSerializer, OrderStatusUpdateSerializer
 from .permissions import IsBusinessUserAndOwner
@@ -10,7 +12,7 @@ from offers_app.models import OfferDetail
 
 class OrderViewSet(viewsets.ModelViewSet):
     pagination_class = None
-    
+
     def get_permissions(self):
         if self.action == 'destroy':
             self.permission_classes = [IsAdminUser]
@@ -19,11 +21,11 @@ class OrderViewSet(viewsets.ModelViewSet):
         else:
             self.permission_classes = [IsAuthenticated]
         return super().get_permissions()
-    
+
     def get_queryset(self):
         user = self.request.user
         return Order.objects.filter(
-            Q(customer_user=user) | Q (business_user=user)
+            Q(customer_user=user) | Q(business_user=user)
         )
 
     def get_serializer_class(self):
@@ -39,17 +41,18 @@ class OrderViewSet(viewsets.ModelViewSet):
         offer_detail_id = input_serializer.validated_data['offer_detail_id']
 
         try:
-            offer_detail = OfferDetail.objects.select_related('offer__user').get(pk=offer_detail_id)
+            offer_detail = OfferDetail.objects.select_related(
+                'offer__user').get(pk=offer_detail_id)
         except OfferDetail.DoesNotExist:
             return Response({"detail": "Offer detail not found."}, status=status.HTTP_404_NOT_FOUND)
-        
+
         business_user = offer_detail.offer.user
         if business_user == request.user:
             return Response(
                 {"detail": "You cannot create an order for your own offer."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-            
+
         order = Order.objects.create(
             customer_user=request.user,
             business_user=business_user,
@@ -63,14 +66,31 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         output_serializer = OrderSerializer(order)
         return Response(output_serializer.data, status=status.HTTP_201_CREATED)
-    
+
     def partial_update(self, request, *args, **kwargs):
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        
+
         self.perform_update(serializer)
-        
+
         output_serializer = OrderSerializer(instance)
-        
+
         return Response(output_serializer.data)
+
+
+class OrderCountView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, business_user_id, format=None):
+        try:
+            User.objects.get(pk=business_user_id)
+        except User.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+            
+        count = Order.objects.filter(
+            business_user_id=business_user_id,
+            status='in_progress'
+        ).count()
+        
+        return Response({'order_count': count}, status=status.HTTP_200_OK)
