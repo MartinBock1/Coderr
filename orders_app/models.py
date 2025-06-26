@@ -16,10 +16,18 @@ class Order(models.Model):
     features =  JSONField(default=list)
     
     offer_type = models.CharField(max_length=50, default='basic')
-    status = models.CharField(max_length=50, default='in_progress')
+    # status = models.CharField(max_length=50, default='in_progress')
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        # Default ordering for querysets: most recently updated offers first.
+        # ordering = ['-updated_at']
+        
+        # Human-readable names for the Django admin interface.
+        verbose_name = "Order"
+        verbose_name_plural = "Orders"
     
     def __str__(self):
         return f"Order {self.id}: {self.title}"
