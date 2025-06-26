@@ -94,3 +94,19 @@ class OrderCountView(APIView):
         ).count()
         
         return Response({'order_count': count}, status=status.HTTP_200_OK)
+
+class CompletedOrderCountView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, business_user_id, format=None):
+        try:
+            User.objects.get(pk=business_user_id)
+        except User.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+            
+        count = Order.objects.filter(
+            business_user_id=business_user_id,
+            status='completed'
+        ).count()
+        
+        return Response({'completed_order_count': count}, status=status.HTTP_200_OK)

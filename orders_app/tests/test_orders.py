@@ -327,4 +327,49 @@ class OrderCountViewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         
         
+ # ====================================================================
+# CLASS 5: Tests for Completed Order Count endpoint
+# ====================================================================
+class CompletedOrderCountViewTests(APITestCase):
+    def setUp(self):
+        self.request_user = User.objects.create_user(
+            username='request_user',
+            password='password123'
+        )
+        self.business_user = User.objects.create_user(
+            username='business_user',
+            password='password123'
+        )
+    
+        for i in range(3):
+            Order.objects.create(
+                business_user=self.business_user,
+                customer_user=self.request_user,
+                status='completed',
+                price=10
+            )
+        Order.objects.create(
+            business_user=self.business_user,
+            customer_user=self.request_user,
+            status='in_progress',
+            price=10
+        )
+        Order.objects.create(
+            business_user=self.business_user,
+            customer_user=self.request_user,
+            status='cancelled',
+            price=10
+        )
+        
+    def test_get_completed_order_count_for_nonexistent_user(self):
+        invalid_id = 9999
+        url = reverse('completed-order-count', kwargs={'business_user_id': invalid_id})
+        self.client.force_authenticate(user=self.request_user)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)   
+    
+    def test_get_completed_order_count_unauthenticated(self):
+        url = reverse('completed-order-count', kwargs={'business_user_id': self.business_user.id})       
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)   
         
