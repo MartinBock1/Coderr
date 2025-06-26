@@ -11,8 +11,6 @@ from user_auth_app.models import UserProfile
 # ====================================================================
 # CLASS 1: Tests on an empty database
 # ====================================================================
-
-
 class OrderAPINoDataTests(APITestCase):
     """
     Tests for the Order API endpoints when the database contains no Order data.
