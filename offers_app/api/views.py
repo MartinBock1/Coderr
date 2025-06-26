@@ -123,15 +123,6 @@ class OfferViewSet(viewsets.ModelViewSet):
         read_serializer = OfferResponseSerializer(instance, context=self.get_serializer_context())
         headers = self.get_success_headers(read_serializer.data)
         return Response(read_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-    
-    # def perform_update(self, serializer):
-    #     """
-    #     Overrides the default `update` behavior for both PUT and PATCH requests.
-
-    #     Similar to `create`, this ensures that after a successful update, the response body
-    #     contains the full, updated object representation using the `OfferResponseSerializer`.
-    #     """
-    #     serializer.save()
 
     def update(self, request, *args, **kwargs):
         """
@@ -154,14 +145,6 @@ class OfferViewSet(viewsets.ModelViewSet):
         # Serialize the updated instance for the response.
         read_serializer = OfferResponseSerializer(instance, context=self.get_serializer_context())
         return Response(read_serializer.data)
-
-    # def partial_update(self, request, *args, **kwargs):
-    #     """
-    #     Ensures PATCH requests are handled by the update method with partial=True.
-    #     """
-    #     kwargs['partial'] = True
-    #     return self.update(request, *args, **kwargs)
-    
 
 class OfferDetailViewSet(viewsets.ReadOnlyModelViewSet):
     """
