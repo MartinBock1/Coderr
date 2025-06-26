@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'profile_app.apps.ProfileAppConfig',
     'offers_app.apps.OffersAppConfig',
     'orders_app.apps.OrdersAppConfig',
+    'reviews_app.apps.ReviewsAppConfig',
     'user_auth_app.apps.UserAuthAppConfig',
 ]
 
