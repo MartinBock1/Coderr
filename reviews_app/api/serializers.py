@@ -52,26 +52,27 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
         Performs custom cross-field validation.
 
         This method ensures that a user cannot submit a review for themselves, which is a critical
-        business rule. It accesses the request user from the serializer's context.
+        business rule. It accesses the request user from the serializer's context, which must be
+        provided by the view.
 
         Args:
-            data (dict): The dictionary of validated data.
+            data (dict): The dictionary of validated data from the request payload.
 
         Raises:
-            serializers.ValidationError: If the reviewer is the same as the business_user.
+            serializers.ValidationError: If the user attempts to review themselves.
 
         Returns:
-            dict: The validated data.
+            dict: The validated data, ready for object creation.
         """
         # The request object is passed into the serializer's context from the view.
         # This is the standard way to access request-specific information like the user.
         request = self.context.get('request')
         if not request:
-             # This is a safeguard; in a standard DRF flow,
-             # the context will always contain the request.
+            # This is a safeguard; in a standard DRF flow,
+            # the context will always contain the request.
             return data
 
-        # The user submitting the review.
+        # The user submitting the review is the currently authenticated user.
         reviewer = request.user
         # The user being reviewed, from the incoming payload.
         business_user = data.get('business_user')
@@ -81,3 +82,20 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("You cannot create a review for yourself!")
 
         return data
+
+
+class ReviewUpdateSerializer(serializers.ModelSerializer):
+    """
+    Handles updating an existing Review instance.
+
+    This serializer is intentionally limited to only the fields that are allowed to be edited
+    ('rating' and 'description'). It ensures that critical, immutable fields like the reviewer or
+    the reviewed business cannot be changed after creation, enhancing data integrity.
+    """
+    class Meta:
+        """Configures the serializer's behavior."""
+        model = Review
+        # Only these fields will be accepted in a PATCH or PUT request. Any other fields
+        # provided in the request body will be ignored by the serializer.
+        # Only these fields will be accepted in a PATCH request.
+        fields = ['rating', 'description']
