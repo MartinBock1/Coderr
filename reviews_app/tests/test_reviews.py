@@ -10,6 +10,8 @@ from user_auth_app.models import UserProfile
 # ====================================================================
 # CLASS 1: Tests on an empty database
 # ====================================================================
+
+
 class ReviewAPINoDataTests(APITestCase):
     """
     Test suite for the Review API endpoints when the database is empty.
@@ -270,6 +272,7 @@ class ReviewUpdateAPITests(APITestCase):
     Covers success cases for the owner, permission denials for non-owners and
     unauthenticated users, and validation for data and non-editable fields.
     """
+
     def setUp(self):
         """
         Sets up the initial state for all tests in this class.
@@ -298,7 +301,7 @@ class ReviewUpdateAPITests(APITestCase):
             rating=3,
             description="Initial description."
         )
-        
+
         self.url = reverse('review-detail', kwargs={'pk': self.review.pk})
 
     def test_owner_can_update_review(self):
@@ -308,25 +311,25 @@ class ReviewUpdateAPITests(APITestCase):
         """
         # Arrange: Authenticate the request as the review's owner.
         self.client.force_authenticate(user=self.reviewer_owner)
-        
+
         # A small delay to ensure the `updated_at` timestamp will be different from `created_at`.
         time.sleep(0.01)
-        
+
         update_data = {
             'rating': 5,
             'description': "Updated description!"
         }
-        
+
         # Act: Send a PATCH request with the update data.
         response = self.client.patch(self.url, update_data)
-        
-         # Assert: The request was successful.
+
+        # Assert: The request was successful.
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        
+
         # Assert: The response body contains the updated data.
         self.assertEqual(response.data['rating'], 5)
         self.assertEqual(response.data['description'], "Updated description!")
-        
+
         # Assert: The data was correctly saved to the database.
         self.review.refresh_from_db()
         self.assertEqual(self.review.rating, 5)
@@ -339,24 +342,24 @@ class ReviewUpdateAPITests(APITestCase):
         """
         # Arrange: Authenticate as a user who is NOT the owner of the review.
         self.client.force_authenticate(user=self.reviewer_non_owner)
-        
+
         # Act: Attempt to send a PATCH request.
         update_data = {'rating': 1}
         response = self.client.patch(self.url, update_data)
-        
+
         # Assert: The request was forbidden.
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-    
+
     def test_unauthenticated_user_cannot_update_review(self):
         """Verifies that an unauthenticated user receives a 401 Unauthorized error."""
         # Arrange: No authentication is performed.
         # Act: Attempt to send a PATCH request.
         update_data = {'rating': 1}
         response = self.client.patch(self.url, update_data)
-        
+
         # Assert: The request was unauthorized.
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-         
+
     def test_cannot_update_forbidden_fields(self):
         """
         Verifies that critical, immutable fields like 'business_user' and 'reviewer'
@@ -364,25 +367,25 @@ class ReviewUpdateAPITests(APITestCase):
         """
         # Arrange: Authenticate as the owner.
         self.client.force_authenticate(user=self.reviewer_owner)
-        
+
         # Arrange: Create another user to attempt to switch the `business_user` to.
         another_business_user = User.objects.create_user(username='otherbusiness')
-        
+
         # Arrange: The payload includes a forbidden field ('business_user')
         # and an allowed one ('rating').
         update_data = {
-            'business_user': another_business_user.id, # Attempt to change a forbidden field
-            'rating': 1 # Also include a valid field
+            'business_user': another_business_user.id,  # Attempt to change a forbidden field
+            'rating': 1  # Also include a valid field
         }
-        
+
         # Act: Send the PATCH request.
         response = self.client.patch(self.url, update_data)
-        
+
         # Assert: The request is still considered successful (200 OK) because invalid fields are
         # ignored by the serializer.
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        
-         # Assert: Check the database to confirm the state of the object.
+
+        # Assert: Check the database to confirm the state of the object.
         self.review.refresh_from_db()
         # Assert that the forbidden field was NOT changed.
         self.assertEqual(self.review.business_user, self.business_user)
@@ -396,13 +399,13 @@ class ReviewUpdateAPITests(APITestCase):
         """
         # Arrange: Authenticate as the owner.
         self.client.force_authenticate(user=self.reviewer_owner)
-        
+
         # Arrange: The payload contains an invalid rating.
         update_data = {'rating': 10}
-       
+
         # Act: Send the PATCH request.
         response = self.client.patch(self.url, update_data)
-        
+
         # Assert: The server responded with a bad request error.
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
@@ -413,13 +416,122 @@ class ReviewUpdateAPITests(APITestCase):
         """
         # Arrange: Authenticate as any valid user.
         self.client.force_authenticate(user=self.reviewer_owner)
+
+        # Arrange: Define a URL for a primary key that is guaranteed not to exist.
+        non_existent_url = reverse('review-detail', kwargs={'pk': 9999})
+
+        # Act: Send a PATCH request to the non-existent URL.
+        response = self.client.patch(non_existent_url, {'rating': 1})
+
+        # Assert: The server responded with a not found error.
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+# ====================================================================
+# CLASS 5: Tests for deleting reviews
+# ====================================================================
+class ReviewDeleteAPITests(APITestCase):
+    """
+        Test suite for deleting existing reviews via `DELETE /api/reviews/{id}/`.
+
+        This suite covers the success case for the review owner, permission denial for non-owners
+        and unauthenticated users, and the handling of requests for non-existent reviews.
+        """
+    def setUp(self):
+        """
+        Sets up the initial state for all tests in this class.
+
+        This includes creating users with different roles (owner vs. non-owner) and a target review
+        object that will be the subject of the DELETE requests.
+        """
+        # Use create_user to ensure passwords are properly hashed.
+        self.reviewer_owner = User.objects.create_user(
+            username='owner',
+            password='password123'
+        )
+        self.reviewer_non_owner = User.objects.create_user(
+            username='non_owner',
+            password='password123'
+        )
+        self.business_user = User.objects.create_user(
+            username='business',
+            password='password123'
+        )
+
+        # Create the review that will be the target of our tests
+        self.review = Review.objects.create(
+            business_user=self.business_user,
+            reviewer=self.reviewer_owner,
+            rating=3
+        )
+
+        self.url = reverse('review-detail', kwargs={'pk': self.review.pk})
+
+    def test_owner_can_delete_review(self):
+        """
+        Verifies that the owner of a review can successfully delete it.
+        This is the primary success case ("happy path").
+        """
+        # Arrange: Authenticate the request as the review's owner.
+        self.client.force_authenticate(user=self.reviewer_owner)
+
+        # Arrange: Confirm the review exists in the database before the deletion attempt.
+        self.assertTrue(Review.objects.filter(pk=self.review.pk).exists())
+
+        # Act: Send the DELETE request to the URL.
+        response = self.client.delete(self.url)
+
+        # Assert: The request was successful, indicated by a 204 No Content status.
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         
+        # Assert: Verify that the review object has been permanently removed from the database.
+        self.assertFalse(Review.objects.filter(pk=self.review.pk).exists())
+        self.assertEqual(Review.objects.count(), 0)
+
+    def test_non_owner_cannot_delete_review(self):
+        """
+        Verifies that a user who is not the owner receives a 403 Forbidden error
+        when trying to delete a review.
+        """
+        # Arrange: Authenticate as a user who is NOT the owner of the review.
+        self.client.force_authenticate(user=self.reviewer_non_owner)
+
+        # Act: Attempt to send a DELETE request.
+        response = self.client.delete(self.url)
+
+        # Assert: The request was forbidden by the permission class.
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        
+        # Assert: Verify the review was NOT deleted and still exists in the database.
+        self.assertEqual(Review.objects.count(), 1)
+
+    def test_unauthenticated_user_cannot_delete_review(self):
+        """
+        Verifies that an unauthenticated (anonymous) user receives a 401 Unauthorized error.
+        """
+        # Arrange: No client authentication is performed for this test.
+        # Act: Attempt to send a DELETE request.
+        response = self.client.delete(self.url)
+
+        # Assert: The request was unauthorized.
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        
+        # Assert: Verify the review was NOT deleted.
+        self.assertEqual(Review.objects.count(), 1)
+
+    def test_delete_non_existent_review(self):
+        """
+        Verifies that attempting to delete a review that does not exist results
+        in a 404 Not Found error.
+        """
+        # Arrange: Authenticate as a valid user (the owner in this case).
+        self.client.force_authenticate(user=self.reviewer_owner)
+
         # Arrange: Define a URL for a primary key that is guaranteed not to exist.
         non_existent_url = reverse('review-detail', kwargs={'pk': 9999})
         
-        # Act: Send a PATCH request to the non-existent URL.
-        response = self.client.patch(non_existent_url, {'rating': 1})
-        
+        # Act: Send a DELETE request to the non-existent URL.
+        response = self.client.delete(non_existent_url)
+
         # Assert: The server responded with a not found error.
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-    
