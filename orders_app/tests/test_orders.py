@@ -6,7 +6,7 @@ from django.contrib.auth.models import User
 
 from ..models import Order
 from offers_app.models import Offer, OfferDetail
-from user_auth_app.models import UserProfile
+from profile_app.models import Profile
 
 # ====================================================================
 # CLASS 1: Tests on an empty database
@@ -132,18 +132,43 @@ class OrderAPIPostTests(APITestCase):
 
     def setUp(self):
         """
-        Creates users with specific roles ('customer', 'business') and an Offer with an
-        OfferDetail, which is required to create a new order.
+        Prepares a complete and realistic scenario for testing the creation of an `Order`.
+
+        This method establishes all the necessary preconditions for an order to be placed.
+        The key components and their roles in the test are:
+
+        1.  A 'customer' User (`user_a`): This user will act as the buyer who initiates
+            the order creation.
+        2.  A 'business' User (`user_b`): This user acts as the seller who owns the offer
+            being purchased.
+        3.  An `Offer` and a specific `OfferDetail`: These represent the purchasable
+            service. The `OfferDetail` is the crucial piece, as its ID will be sent in
+            the POST request payload to create the order.
+
+        This setup allows tests to simulate a customer purchasing a specific service from
+        a business, validating the entire order creation workflow from request to database
+        persistency.
         """
+        # First, create the user who will act as the customer (the buyer).
         self.user_a = User.objects.create_user(username='userA', password='password123')
-        UserProfile.objects.create(user=self.user_a, type='customer')
+        # A Profile is created automatically via a post-save signal upon User creation.
+        # We explicitly set its type to 'customer' to match the test's requirements.
+        self.user_a.profile.type = Profile.UserType.CUSTOMER
+        self.user_a.profile.save()
 
+        # Next, create the user who will act as the business (the seller).
         self.user_b = User.objects.create_user(username='userB', password='password123')
-        UserProfile.objects.create(user=self.user_b, type='business')
+        # We update the auto-created profile's type to 'business' for this user.
+        self.user_b.profile.type = Profile.UserType.BUSINESS
+        self.user_b.profile.save()
 
+        # Create the parent Offer, which must be owned by the business user.
         self.main_offer = Offer.objects.create(
             user=self.user_b, title="Professional Logo Design")
 
+        # This is the key object for the test. It represents the specific package
+        # or service that the customer will purchase. Its ID will be used in the
+        # POST request payload to create the order.
         self.offer_detail = OfferDetail.objects.create(
             offer=self.main_offer,
             title="Standard Package",
@@ -202,13 +227,38 @@ class OrderAPIPatchTests(APITestCase):
 
     def setUp(self):
         """
-        Creates a 'customer' and a 'business' user to test role-based permissions for updates.
-        """
-        self.user_a = User.objects.create_user(username='customerA', password='password123')
-        UserProfile.objects.create(user=self.user_a, type='customer')
+        Prepares the environment to test the permission logic for updating an `Order`.
 
+        This method establishes a specific scenario with all necessary preconditions to
+        verify which users are authorized to modify an existing order. The key elements
+        created are:
+
+        1.  A 'customer' User (`user_a`): The buyer in the order, who should *not* have
+            permission to update the order's status.
+        2.  A 'business' User (`user_b`): The seller and designated "owner" of the order,
+            who *should* have permission to update it.
+        3.  An `Order` instance: The target resource for the update requests, linking the
+            customer and business users.
+
+        This setup allows tests to effectively validate role-based permission classes like
+        `IsBusinessUserAndOwner`.
+        """
+        # Create the user who will act as the customer for the order.
+        self.user_a = User.objects.create_user(username='customerA', password='password123')
+        # A Profile is created automatically via a post-save signal. We ensure its
+        # type is set to 'customer' for this test scenario.
+        self.user_a.profile.type = Profile.UserType.CUSTOMER
+        self.user_a.profile.save()
+
+        # Create the user who will act as the business/provider for the order.
+        # This user is the designated owner and should be the only one allowed to update.
         self.user_b = User.objects.create_user(username='businessB', password='password123')
-        UserProfile.objects.create(user=self.user_b, type='business')
+        # We update the auto-created profile's type to 'business'.
+        self.user_b.profile.type = Profile.UserType.BUSINESS
+        self.user_b.profile.save()
+        
+        # Create the Order instance that will be the target of the update tests.
+        # It explicitly links the customer and business users.
         self.order = Order.objects.create(
             customer_user=self.user_a,
             business_user=self.user_b,

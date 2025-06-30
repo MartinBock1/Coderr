@@ -1,5 +1,5 @@
 from rest_framework.permissions import BasePermission
-from user_auth_app.models import UserProfile
+from profile_app.models import Profile
 
 
 class IsBusinessUserAndOwner(BasePermission):
@@ -35,8 +35,8 @@ class IsBusinessUserAndOwner(BasePermission):
             # First condition: Verify the user has a profile and its type is 'business'.
             # This is wrapped in a try-except block to gracefully handle cases where
             # a user might not have a UserProfile object created yet.
-            is_business = request.user.userprofile.type == 'business'
-        except UserProfile.DoesNotExist:
+            is_business = request.user.profile.type == 'business'
+        except Profile.DoesNotExist:
             # If the user has no profile, they cannot be a business user. Deny permission
             # immediately.
             return False
