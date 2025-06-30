@@ -1,4 +1,5 @@
 from rest_framework import permissions
+from profile_app.models import Profile
 
 
 class IsOwnerOrReadOnly(permissions.BasePermission):
@@ -45,43 +46,44 @@ class IsOwnerOrReadOnly(permissions.BasePermission):
 
 class IsBusinessUser(permissions.BasePermission):
     """
-    Custom permission to only allow users with a 'business' profile to act.
+    Custom permission to only allow users with a 'business' profile to perform an action.
 
-    This permission class implements a role-based access control check. It is designed for views
-    where actions (like creating or modifying resources) are restricted to a specific type of
-    user. In this case, only users identified as having a 'business' role are granted access.
+    This permission implements role-based access control (RBAC) by checking the `type` field on
+    the user's associated `Profile` object. It's designed for use in views where certain actions,
+    such as creating a new `Offer`, should be restricted to users who have been designated
+    as a 'business' in the system.
 
-    This class is intended for use in view-level permission checks, often in a view's
-    `permission_classes` list or returned from `get_permissions()`. It assumes the User model has
-    an attribute to identify the user's role.
+    This is a view-level permission, meaning it runs for every request to a view that uses it,
+    before the view's main logic is executed.
     """
-    # A custom error message that will be sent in the response if permission is denied.
+    # A custom error message that DRF will include in the response body if this
+    # permission check returns False.
     message = "You do not have permission to perform this action. \
                Only 'business' users are allowed."
 
     def has_permission(self, request, view):
         """
-        Check if the user has permission to access the view at all.
-
-        This method is called by DRF for any request to a view that uses this permission class. It
-        runs before the view's main logic is executed.
+        Checks if the requesting user has permission to access the view.
 
         Args:
-            request: The incoming HttpRequest object.
+            request: The incoming HttpRequest object, which contains the authenticated user.
             view: The view that is handling the request.
 
         Returns:
-            bool: True if permission is granted, False otherwise.
+            bool: True if the user is an authenticated 'business' user, False otherwise.
         """
-        # First, we ensure that the user is authenticated. This check prevents
-        # potential AttributeErrors when trying to access properties on an
-        # AnonymousUser, which has no custom profile attributes.
-        # The check for `request.user` handles cases where no user is associated at all.
+        # First, ensure the user is authenticated. This is a critical prerequisite and
+        # prevents potential `AttributeError` exceptions when trying to access `user.profile`
+        # on an `AnonymousUser` (who has no profile).
         if not request.user or not request.user.is_authenticated:
             return False
-
-        if hasattr(request.user, 'userprofile'):
-            return request.user.userprofile.type == 'business'
         
-        return False
+        try:
+            # Access the user's related profile via the `profile` reverse accessor.
+            # The core logic: grant permission only if the profile's type is 'business'.
+            return request.user.profile.type == Profile.UserType.BUSINESS
+        except Profile.DoesNotExist:
+            # If a Profile object does not exist for this user for any reason, they cannot
+            # be a 'business' user. This gracefully handles the edge case and denies permission.
+            return False
     

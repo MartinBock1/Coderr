@@ -4,7 +4,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from offers_app.models import Offer, OfferDetail
-from user_auth_app.models import UserProfile
+from profile_app.models import Profile
 
 User = get_user_model()
 
@@ -411,31 +411,62 @@ class OfferAPIPostTests(APITestCase):
 
     def setUp(self):
         """
-        Creates a 'business' user who can post and a 'customer' user who cannot.
+        Prepares the environment for each test in this class.
+
+        This method sets up a consistent state before each test run. It creates two distinct
+        users with different roles ('business' and 'customer') to test the API's role-based
+        permission system.
+
+        Key setup steps include:
+        1.  Creating a `User` instance with a 'business' profile, who is authorized to
+            create offers.
+        2.  Creating a `User` instance with a 'customer' profile, who is *not* authorized
+            to create offers.
+        3.  Defining a reusable URL for the offer creation endpoint.
+        4.  Defining a valid, reusable payload for creating a new offer, which can be
+            used in "happy path" tests or modified for failure-case tests.
+
+        The setup leverages the signal system: creating a `User` automatically creates a
+        related `Profile` with a default type, which is then explicitly updated to match
+        the required role for the test scenario.
         """
-        # Create an authorized "business" user and their profile
+        # Create the 'business' user, who is authorized to perform the action.
+        # The `create_user` helper ensures the password is properly hashed.
         self.business_user = User.objects.create_user(
             username='business_owner',
             password='password123'
         )
-        UserProfile.objects.create(user=self.business_user, type='business')
+        # A `Profile` instance is automatically created by a post-save signal.
+        # We retrieve this profile via the `user.profile` reverse accessor and update
+        # its `type` to 'business' to match the test requirements.
+        self.business_user.profile.type = Profile.UserType.BUSINESS
+        self.business_user.profile.save()
 
-        # Create a non-authorized "customer" user and their profile
+        # Create the 'customer' user, who is NOT authorized to perform the action.
+        # This user is essential for testing that permission rules are correctly enforced.
         self.customer_user = User.objects.create_user(
             username='regular_customer',
             password='password123'
         )
-        UserProfile.objects.create(user=self.customer_user, type='customer')
+        # The signal automatically creates a profile with the default type 'customer'.
+        # While not strictly necessary to set it again, we do so here for clarity
+        # and to ensure the test is explicit about the user's role.
+        self.customer_user.profile.type = Profile.UserType.CUSTOMER
+        self.customer_user.profile.save()
 
-        # The URL for creating offers is the same as the list view.
+        # The URL for creating new offers is the list endpoint ('/api/offers/').
+        # Storing it as an instance attribute avoids redundant `reverse()` calls.
         self.url = reverse('offer-list')
 
+        # Define a standard, valid payload for creating an offer. This serves as a
+        # baseline for success tests and can be easily modified for tests that
+        # check validation and error handling.
         self.valid_payload = {
             "title": "Grafikdesign-Paket",
             "description": "Ein umfassendes Paket.",
             "details": [
                 {
-                    "title": "Basic Paket",  # Eindeutiger Titel für den Test
+                    "title": "Basic Paket",
                     "price": "150.00",
                     "delivery_time_in_days": 5,
                     "revisions": 1,
@@ -443,7 +474,7 @@ class OfferAPIPostTests(APITestCase):
                     "offer_type": "basic"
                 },
                 {
-                    "title": "Standard Paket", # Eindeutiger Titel für den Test
+                    "title": "Standard Paket",
                     "price": "300.00",
                     "delivery_time_in_days": 3,
                     "revisions": 3,
@@ -451,7 +482,7 @@ class OfferAPIPostTests(APITestCase):
                     "offer_type": "standard"
                 },
                 {
-                    "title": "Premium Paket", # Eindeutiger Titel für den Test
+                    "title": "Premium Paket",
                     "price": "500.00",
                     "delivery_time_in_days": 2,
                     "revisions": 5,
@@ -763,23 +794,44 @@ class OfferAPIPatchTests(APITestCase):
     """
     def setUp(self):
         """
-        Set up a fresh state for each test method.
-        This includes an owner, a non-owner, and a complete offer.
+        Sets up a fresh and consistent state for each test method in this class.
+
+        This method is designed to create a complete scenario for testing the update (PATCH)
+        functionality of an offer. The key components created are:
+
+        1.  An 'owner' User: The user who creates and legitimately owns the offer. This user
+            is used to test the "happy path" where updates are permitted.
+        2.  A 'non_owner' User: Another authenticated user who does not own the offer. This user
+            is crucial for verifying that permission classes (like `IsOwnerOrReadOnly`)
+            correctly block unauthorized update attempts.
+        3.  A complete 'Offer' with nested 'OfferDetail's: A realistic target object with
+            both top-level and nested data that can be modified during the tests.
+        4.  A pre-resolved URL: The specific endpoint for the created offer, to avoid
+            redundant `reverse()` calls in each test.
         """
         # The user who owns the offer to be updated.
         self.owner = User.objects.create_user(username='owner', password='password123')
-        UserProfile.objects.create(user=self.owner, type='business')
+        # The post-save signal automatically creates a Profile. We update its type
+        # to 'business' to align with the application's permission requirements.
+        self.owner.profile.type = Profile.UserType.BUSINESS
+        self.owner.profile.save()
         
-        # A different user, to test that non-owners are forbidden from updating
+        # A different authenticated user, to test that non-owners are forbidden from updating.
         self.non_owner = User.objects.create_user(username='nonowner', password='password123')
-        UserProfile.objects.create(user=self.non_owner, type='business')
+        # We also set this user's profile to 'business' to create a realistic scenario
+        # where the permission check is based purely on ownership, not user type.
+        self.non_owner.profile.type = Profile.UserType.BUSINESS
+        self.non_owner.profile.save()
         
-        # Create a full offer with 3 details to be used in patch tests.
+        # Create a full offer with 3 details to be used as the target in patch tests.
+        # This offer is explicitly associated with the 'owner' user.
         self.offer = Offer.objects.create(
             user=self.owner,
             title="Original Title",
             description="Original Description"
         )
+        # Storing the details as instance attributes allows us to check their state
+        # after a PATCH request to see if they were correctly updated or left untouched.
         self.detail1 = OfferDetail.objects.create(
             offer=self.offer, title="Basic", offer_type="basic", price=100, delivery_time_in_days=10)
         self.detail2 = OfferDetail.objects.create(
@@ -787,7 +839,8 @@ class OfferAPIPatchTests(APITestCase):
         self.detail3 = OfferDetail.objects.create(
             offer=self.offer, title="Premium", offer_type="premium", price=300, delivery_time_in_days=5)
 
-        # The URL for the specific offer being tested.
+        # The specific URL for the offer being tested, which will be used in all
+        # subsequent `self.client` calls within this test class.
         self.url = reverse('offer-detail', kwargs={'pk': self.offer.pk})
         
     def test_owner_can_patch_offer_using_offer_type(self):
