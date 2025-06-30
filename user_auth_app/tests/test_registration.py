@@ -3,7 +3,7 @@ from rest_framework import status
 from django.urls import reverse
 
 from django.contrib.auth.models import User
-from user_auth_app.models import UserProfile
+from profile_app.models import Profile
 
 
 class RegistrationTests(APITestCase):
@@ -23,7 +23,7 @@ class RegistrationTests(APITestCase):
         1. A POST request is sent to the registration endpoint with valid data.
         2. The response status code is checked for 201 Created.
         3. The response body is checked to ensure it contains the auth token and correct user details.
-        4. The database is checked to confirm that both a `User` and a `UserProfile`
+        4. The database is checked to confirm that both a `User` and a `Profile`
            object were correctly created.
         """
         url = reverse('registration')
@@ -46,13 +46,17 @@ class RegistrationTests(APITestCase):
         self.assertEqual(response.data['email'], data['email'])
         self.assertIn('user_id', response.data)
 
-       # Verify that the user was actually created in the database
+        # Verify that the user was actually created in the database
         user_exists = User.objects.filter(username=data['username'], email=data['email']).exists()
         self.assertTrue(user_exists)
 
-        # Verify that the associated user profile was also created
+        # Verify that the associated Profile was also created
         user = User.objects.get(username=data['username'])
-        profile_exists = UserProfile.objects.filter(user=user, type=data['type']).exists()
+        self.assertTrue(hasattr(user, 'profile'))
+        self.assertEqual(user.profile.type, data['type'])
+
+        # Verify that the profile was actually created in the database
+        profile_exists = Profile.objects.filter(user=user, type=data['type']).exists()
         self.assertTrue(profile_exists)
 
     def test_registration_password_mismatch(self):
@@ -68,14 +72,14 @@ class RegistrationTests(APITestCase):
             "username": "exampleUsername",
             "email": "example@mail.de",
             "password": "examplePassword",
-            "repeated_password": "differentPassword",  # absichtlich falsch
+            "repeated_password": "differentPassword",
             "type": "customer"
         }
         response = self.client.post(url, data, format='json')
 
         # Check for a bad request status code
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        
+
         # Check for the specific password validation error
         self.assertIn('password', response.data)
         self.assertEqual(response.data['password'][0], 'Passwords must match.')

@@ -1,23 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
-from user_auth_app.models import UserProfile
-
-
-class UserProfileSerializer(serializers.ModelSerializer):
-    """
-    Serializes a UserProfile model instance for read operations.
-
-    This serializer exposes the core fields of a UserProfile, primarily for displaying user
-    details. It's not typically used for creation, as that logic is handled by the
-    RegistrationSerializer.
-    """
-    class Meta:
-        model = UserProfile
-        fields = [
-            'user',  # The ID of the associated Django User instance.
-            'type'   # The role of the user, e.g., 'customer', 'business'.
-        ]
 
 
 class RegistrationSerializer(serializers.ModelSerializer):
@@ -25,7 +8,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
     Handles the registration of a new user.
 
     This serializer validates user input, confirms passwords, and creates both a new `User`
-    instance and its associated `UserProfile`.
+    instance and its associated `Profile`.
 
     Input Fields:
         - username (str): The desired username. Must be unique.
@@ -68,7 +51,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         """
-        Create and save the new User and UserProfile instances.
+        Create and save the new User and Profile instances.
 
         This method overrides the default `.create()` to handle the custom logic
         of creating two related model instances from the validated data. It uses
@@ -81,11 +64,11 @@ class RegistrationSerializer(serializers.ModelSerializer):
             password=validated_data['password']
         )
 
-        # Create the associated UserProfile instance
-        UserProfile.objects.create(
-            user=user,
-            type=validated_data['type']
-        )
+        # The profile has already been created by the signal with `type=‘customer’`.
+        # We overwrite it with the value that the user specified during registration.
+        if 'type' in validated_data:
+            user.profile.type = validated_data['type']
+            user.profile.save()
 
         return user
 
