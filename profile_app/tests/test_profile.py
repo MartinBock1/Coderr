@@ -115,7 +115,7 @@ class ProfileAPITests(APITestCase):
         self.assertEqual(response.data['email'], self.user1.email)
 
         # Verify the custom datetime format (e.g., '2023-01-01T12:00:00').
-        self.assertNotIn('Z', response.data['created_at'])  # Should not have timezone info.
+        self.assertIn('Z', response.data['created_at'])     # Should have 'Z' separator.
         self.assertIn('T', response.data['created_at'])     # Should have 'T' separator.
 
     def test_get_other_users_profile(self):

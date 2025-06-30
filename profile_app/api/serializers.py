@@ -24,7 +24,7 @@ class CustomerProfileListSerializer(serializers.ModelSerializer):
     # The profile's creation timestamp, which is renamed to 'uploaded_at' for the API output.
     # `source='created_at'`: Specifies that the data should come from the `created_at` model field.
     # `format="..."`: Enforces a specific ISO 8601 string format, omitting milliseconds and timezone.
-    uploaded_at = serializers.DateTimeField(source='created_at', format="%Y-%m-%dT%H:%M:%S", read_only=True)
+    uploaded_at = serializers.DateTimeField(source='created_at', format="%Y-%m-%dT%H:%M:%SZ", read_only=True)
 
     # The full URL to the profile picture.
     # `source='file_url'`: This points to the `file_url` @property method on the Profile model,
@@ -122,7 +122,7 @@ class ProfileSerializer(serializers.ModelSerializer):
     # The profile's creation timestamp with custom formatting.
     # The `format` argument ensures a consistent ISO 8601 format
     # without milliseconds or timezone information (e.g., "2023-01-01T12:00:00").
-    created_at = serializers.DateTimeField(format="%Y-%m-%dT%H:%M:%S", read_only=True)
+    created_at = serializers.DateTimeField(format="%Y-%m-%dT%H:%M:%SZ", read_only=True)
 
     class Meta:
         """
