@@ -95,25 +95,10 @@ class ReviewViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         """
-        Overrides the default `create` behavior to add custom logic.
-
-        This implementation performs two key tasks:
-        1.  It checks for duplicate reviews before attempting to save, returning a
-            more specific `403 Forbidden` status if one exists.
-        2.  It uses the `ReviewReadSerializer` to format the success response, ensuring
-            the returned object is complete and consistent with a GET request.
+        Overrides the default `create` behavior. The validation logic, including
+        the check for duplicate reviews, is now fully handled by the serializer.
         """
-        business_user_id = request.data.get('business_user')
-        # Check if this reviewer has already reviewed this business user.
-        if business_user_id and Review.objects.filter(
-            business_user_id=business_user_id,
-            reviewer=request.user
-        ).exists():
-            return Response(
-                {"detail": "You have already submitted a review for this business."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
+        
         # 1. Use the write serializer (`ReviewCreateSerializer`) to validate input.
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)

@@ -256,8 +256,8 @@ class ReviewCreateAPITests(APITestCase):
 
     def test_user_cannot_review_same_business_twice(self):
         """
-        Verifies that a user receives a 403 Forbidden status when attempting to submit
-        a second review for the same business.
+        Verifies that a user receives a 400 Bad Request status when attempting to submit
+        a second review for the same business, as this is a validation error.
         """
         # Arrange: Create an initial review.
         Review.objects.create(
@@ -275,8 +275,14 @@ class ReviewCreateAPITests(APITestCase):
         }
         response = self.client.post(self.url, data)
 
-        # Assert: The request is forbidden.
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        # Assert: The request is bad request.
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('non_field_errors', response.data)
+        self.assertEqual(
+            response.data['non_field_errors'][0],
+            "You have already submitted a review for this business."
+        )
+        
         # Assert: The number of reviews in the database has not changed.
         self.assertEqual(Review.objects.count(), 1)
 

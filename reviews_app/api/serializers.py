@@ -50,19 +50,10 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
     def validate(self, data):
         """
         Performs custom cross-field validation.
-
-        This method ensures that a user cannot submit a review for themselves, which is a critical
-        business rule. It accesses the request user from the serializer's context, which must be
-        provided by the view.
-
-        Args:
-            data (dict): The dictionary of validated data from the request payload.
-
-        Raises:
-            serializers.ValidationError: If the user attempts to review themselves.
-
-        Returns:
-            dict: The validated data, ready for object creation.
+    
+        Checks for:
+        1. A user cannot review themselves.
+        2. A user cannot submit more than one review for the same business.
         """
         # The request object is passed into the serializer's context from the view.
         # This is the standard way to access request-specific information like the user.
@@ -80,6 +71,12 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
         # Enforce the business rule: a user cannot review themselves.
         if business_user == reviewer:
             raise serializers.ValidationError("You cannot create a review for yourself!")
+        
+        if Review.objects.filter(business_user=business_user, reviewer=reviewer).exists():
+            # A ValidationError is automatically converted by DRF into a 400 Bad Request.
+            raise serializers.ValidationError(
+                "You have already submitted a review for this business."
+        )
 
         return data
 
