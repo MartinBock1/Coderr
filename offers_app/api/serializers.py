@@ -277,8 +277,8 @@ class OfferRetrieveSerializer(serializers.ModelSerializer):
     details = OfferDetailUrlSerializer(many=True, read_only=True)
 
     # --- Formatted Fields ---
-    created_at = serializers.DateTimeField(format="%Y-%m-%dT%H:%M:%SZ", read_only=True)
-    updated_at = serializers.DateTimeField(format="%Y-%m-%dT%H:%M:%SZ", read_only=True)
+    # created_at = serializers.DateTimeField(format="%Y-%m-%dT%H:%M:%S.%fZ", read_only=True)
+    # updated_at = serializers.DateTimeField(format="%Y-%m-%dT%H:%M:%S.%fZ", read_only=True)
 
     class Meta:
         model = Offer

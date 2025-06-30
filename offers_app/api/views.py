@@ -52,7 +52,7 @@ class OfferViewSet(viewsets.ModelViewSet):
         - `retrieve`: Any authenticated user can view a single offer's details.
         - `list`: Anyone (authenticated or not) can browse the list of offers.
         """
-        if self.action in ['update', 'partial_update', 'destroy']:
+        if self.action in ['update', 'partial_update']:
             # For write operations on an existing object, only the owner has permission.
             self.permission_classes = [IsOwnerOrReadOnly]
         elif self.action == 'create':
@@ -61,6 +61,8 @@ class OfferViewSet(viewsets.ModelViewSet):
         elif self.action == 'retrieve':
             # Any logged-in user can view the details of a single offer.
             self.permission_classes = [IsAuthenticated]
+        # elif self.action == 'destroy':
+            # self.permission_classes = [AllowAny]
         else:
             # The list view is public and accessible to anyone.
             self.permission_classes = [AllowAny]
@@ -146,6 +148,41 @@ class OfferViewSet(viewsets.ModelViewSet):
         read_serializer = OfferResponseSerializer(instance, context=self.get_serializer_context())
         return Response(read_serializer.data)
 
+    def destroy(self, request, *args, **kwargs):
+        """
+        Custom destroy method to enforce a specific order of checks as per the API documentation:
+        1. Check if the object exists (404).
+        2. Check if the user is authenticated (401).
+        3. Check if the user is the owner (403).
+        """
+        # 1. PRÜFUNG: Existiert das Objekt?
+        # Wir holen das Objekt direkt. Wenn es nicht existiert, wird hier ein 404 ausgelöst,
+        # bevor irgendeine Berechtigungsprüfung stattfindet.
+        instance = self.get_object()
+
+        # 2. PRÜFUNG: Ist der Benutzer authentifiziert?
+        # Wir führen die IsAuthenticated-Prüfung manuell durch.
+        if not request.user or not request.user.is_authenticated:
+            # Wenn nicht, geben wir den geforderten 401-Fehler zurück.
+            # self.permission_denied löst normalerweise einen 403 aus, daher erstellen wir die Response manuell.
+            return Response(
+                {"detail": "Authentication credentials were not provided."},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        # 3. PRÜFUNG: Ist der authentifizierte Benutzer der Besitzer?
+        # Wir instanziieren die IsOwnerOrReadOnly-Klasse und rufen ihre Prüfmethode auf.
+        permission = IsOwnerOrReadOnly()
+        if not permission.has_object_permission(request, self, instance):
+            # Wenn nicht, löst diese Methode einen 403 Forbidden aus.
+            self.permission_denied(
+                request, message=getattr(permission, 'message', None)
+            )
+
+        # 4. AKTION: Wenn alle Prüfungen erfolgreich waren, löschen wir das Objekt.
+        self.perform_destroy(instance)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
 class OfferDetailViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Provides read-only access to OfferDetail objects.
