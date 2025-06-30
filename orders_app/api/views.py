@@ -1,6 +1,6 @@
 from django.contrib.auth.models import User
 from django.db.models import Q
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, generics
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.views import APIView
@@ -10,6 +10,7 @@ from ..models import Order
 from .serializers import OrderSerializer, CreateOrderSerializer, OrderStatusUpdateSerializer
 from .permissions import IsBusinessUserAndOwner
 from offers_app.models import OfferDetail
+from reviews_app.api.permissions import IsCustomerUser
 
 
 class OrderViewSet(viewsets.ModelViewSet):
@@ -41,6 +42,9 @@ class OrderViewSet(viewsets.ModelViewSet):
         elif self.action in ['update', 'partial_update']:
             # To update, a user must be authenticated and be the business owner of the order.
             self.permission_classes = [IsAuthenticated, IsBusinessUserAndOwner]
+        elif self.action == 'create':
+            # Nur eingeloggte Kunden dürfen Bestellungen erstellen
+            self.permission_classes = [IsAuthenticated, IsCustomerUser]
         else:
             # For all other actions (list, retrieve, create), the user just needs to be
             # authenticated.
@@ -49,16 +53,39 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """
-        Filters the queryset to ensure users only see orders they are involved in.
-
-        An authenticated user will see a list of orders where they are either the customer or the
-        business provider.
+        Filters the queryset to ensure regular users only see orders they are
+        involved in. Admins still need special handling for detail/delete views.
         """
         user = self.request.user
-        # Uses a Q object to create an OR condition in the database query.
-        return Order.objects.filter(
-            Q(customer_user=user) | Q(business_user=user)
-        )
+
+        if user.is_authenticated:
+            # Für die Listenansicht filtern wir immer
+            return Order.objects.filter(
+                Q(customer_user=user) | Q(business_user=user)
+            )
+        # Für nicht eingeloggte User einen leeren QuerySet zurückgeben.
+        return Order.objects.none()
+    
+    def get_object(self):
+        """
+        Overrides the default get_object to allow admins to access any order
+        by its ID for detail/update/delete actions, while regular users are still
+        restricted to their own orders.
+        """
+        queryset = self.get_queryset() # Holt den Standard-QuerySet
+        obj = None
+
+        # Für Admins erweitern wir die Suche auf ALLE Objekte
+        if self.request.user.is_staff:
+            # Wir durchsuchen alle Objekte, nicht nur den gefilterten QuerySet
+            obj = generics.get_object_or_404(Order.objects.all(), pk=self.kwargs['pk'])
+        else:
+            # Normale User suchen nur in ihrem gefilterten QuerySet
+            obj = generics.get_object_or_404(queryset, pk=self.kwargs['pk'])
+
+        # Permissions für das spezifische Objekt prüfen
+        self.check_object_permissions(self.request, obj)
+        return obj
 
     def get_serializer_class(self):
         """

@@ -55,6 +55,7 @@ class OrderListAPITests(APITestCase):
         self.user_a = User.objects.create_user(username='userA', password='password123')
         self.user_b = User.objects.create_user(username='userB', password='password123')
         self.user_c = User.objects.create_user(username='userC', password='password123')
+        self.admin_user = User.objects.create_user(username='admin', password='password123', is_staff=True)
 
         # user_a is the customer
         self.order1 = Order.objects.create(
@@ -123,6 +124,22 @@ class OrderListAPITests(APITestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
+    def test_admin_user_gets_only_their_own_orders_on_list_view(self):
+        """
+        Ensures that an admin user, when accessing the list view, only sees their own
+        orders, not all orders on the platform.
+        """
+        # Create an order in which the admin is involved.
+        Order.objects.create(customer_user=self.user_a, business_user=self.admin_user, title='Admin Order', price=500)
+        
+        url = reverse('order-list')
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # The admin should only see the one order they are involved in.
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['title'], 'Admin Order')
 
 # ====================================================================
 # CLASS 3: Tests for creating (POST) orders
@@ -218,6 +235,19 @@ class OrderAPIPostTests(APITestCase):
         response = self.client.post(url, request_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_business_user_cannot_create_order(self):
+        """
+        Ensures that a user with a 'business' profile is forbidden from creating an order.
+        """
+        url = reverse('order-list')
+        # Authentifizieren Sie sich als Business-User (user_b)
+        self.client.force_authenticate(user=self.user_b)
+        request_data = {"offer_detail_id": self.offer_detail.id}
+
+        response = self.client.post(url, request_data, format='json')
+
+        # Erwarten Sie einen 403 Forbidden, da nur Kunden Bestellungen erstellen dürfen.
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 # ====================================================================
 # CLASS 4: Tests for updating (PATCH) orders
@@ -317,6 +347,7 @@ class OrderAPIDeleteTests(APITestCase):
     def setUp(self):
         """Creates a customer, an admin user, and an order to test deletion permissions."""
         self.customer_user = User.objects.create_user(username='customer', password='password123')
+        self.business_user = User.objects.create_user(username='business', password='password123')
         self.admin_user = User.objects.create_user(
             username='admin', password='password123', is_staff=True, is_superuser=True)
         self.order = Order.objects.create(
@@ -352,6 +383,19 @@ class OrderAPIDeleteTests(APITestCase):
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
+    def test_admin_can_delete_another_users_order(self):
+        """
+        Verifies that an admin can delete an order they are not personally involved in.
+        This tests the special logic in get_object() for staff users.
+        """
+        url = reverse('order-detail', kwargs={'pk': self.order.id})
+        self.client.force_authenticate(user=self.admin_user)
+
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        # Prüfen, ob die Bestellung wirklich weg ist.
+        self.assertFalse(Order.objects.filter(id=self.order.id).exists())
 
 # ====================================================================
 # CLASS 6: Tests for Order Count endpoint
