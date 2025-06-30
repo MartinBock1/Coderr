@@ -1013,8 +1013,8 @@ class OfferDetailAPIRetrieveTests(APITestCase):
     @classmethod
     def setUpTestData(cls):
         """Set up a single OfferDetail to be retrieved in tests."""
-        user = User.objects.create_user(username='detailtestuser')
-        offer = Offer.objects.create(user=user, title="Parent Offer")
+        cls.user = User.objects.create_user(username='detailtestuser')
+        offer = Offer.objects.create(user=cls.user, title="Parent Offer")
         
         # This is the specific object we will try to retrieve
         cls.offer_detail = OfferDetail.objects.create(
@@ -1035,7 +1035,7 @@ class OfferDetailAPIRetrieveTests(APITestCase):
         Verifies that an OfferDetail can be successfully retrieved by anyone.
         This also implicitly tests the `AllowAny` permission.
         """
-        # No authentication is needed
+        self.client.force_authenticate(user=self.user)
         response = self.client.get(self.url)
         
         # Assert that the request was successful
@@ -1050,6 +1050,7 @@ class OfferDetailAPIRetrieveTests(APITestCase):
         Verifies that the response contains the complete and correct set of fields.
         This confirms that the `OfferDetailReadSerializer` is being used correctly.
         """
+        self.client.force_authenticate(user=self.user)
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
@@ -1078,8 +1079,19 @@ class OfferDetailAPIRetrieveTests(APITestCase):
         """
         # Create a URL for an ID that does not exist
         non_existent_url = reverse('offerdetail-detail', kwargs={'pk': 9999})
+        self.client.force_authenticate(user=self.user)
         response = self.client.get(non_existent_url)
         
         # Assert that the server correctly returns a 404 Not Found status
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+    
+    def test_retrieve_unauthenticated_user_fails_401(self):
+        """
+        Ensures that an unauthenticated user is denied access with a 401 status.
+        """
+        # Send the request without authentication
+        response = self.client.get(self.url)
+        
+        # Expect a 401 Unauthorized
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
  

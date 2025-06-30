@@ -157,12 +157,4 @@ class OfferDetailViewSet(viewsets.ReadOnlyModelViewSet):
     """
     queryset = OfferDetail.objects.all()
     serializer_class = OfferDetailReadSerializer
-    # No pagination is set, so it will use global defaults or none.
-    
-    def get_permissions(self):
-        """
-        Sets permissions for this ViewSet. All read-only actions are
-        allowed for any user, authenticated or not.
-        """
-        self.permission_classes = [AllowAny]
-        return super().get_permissions()
+    permission_classes = [IsAuthenticated]
