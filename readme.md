@@ -9,7 +9,7 @@ Welcome to the Coderr API, a robust backend service built with Django and Django
 
 ---
 
-## 📖 Table of Contents
+## Table of Contents
 
 -   [About The Project](#about-the-project)
 -   [Key Features](#key-features)
@@ -24,13 +24,13 @@ Welcome to the Coderr API, a robust backend service built with Django and Django
 
 ---
 
-## 🚀 About The Project
+## About The Project
 
 The Coderr API provides the complete backend infrastructure for a service-based marketplace. It handles user authentication, profile management for both 'customer' and 'business' roles, creation and management of service offers, order processing, and a review system. The architecture is modular, with each core feature encapsulated in its own Django app, ensuring scalability and maintainability.
 
 ---
 
-## ✨ Key Features
+## Key Features
 
 -   **Token-Based Authentication**: Secure user registration and login using DRF's AuthToken.
 -   **Role-Based Access Control (RBAC)**: Distinct permissions for 'customer' and 'business' user types. Businesses can create offers, while customers can place orders and write reviews.
@@ -43,7 +43,7 @@ The Coderr API provides the complete backend infrastructure for a service-based 
 
 ---
 
-## 🛠️ Technical Overview
+## Technical Overview
 
 The project is structured into several Django apps, each responsible for a specific domain:
 
@@ -58,7 +58,7 @@ A **post-save signal** on the `User` model automatically creates a `Profile` ins
 
 ---
 
-## 🌐 API Endpoints
+## API Endpoints
 
 A summary of the main API endpoints available:
 
@@ -80,7 +80,7 @@ A summary of the main API endpoints available:
 ---
 
 
-## 🏁 Getting Started
+## Getting Started
 
 Follow these instructions to get a local copy of the project up and running for development and testing.
 
@@ -121,7 +121,7 @@ Note: On macOS/Linux, python3 may have to be used instead of python.
     python manage.py migrate
     ```
 
-## 🖥️ Running the Server
+## Running the Server
 
 To start the local development server, run the following command from the project's root directory:
 
@@ -132,7 +132,7 @@ Tip: If errors occur, check the `settings.py` for paths, database settings or fo
 
 Now, you can access the application at http://localhost:8000.
 
-## 📚 API Documentation
+## API Documentation
 This project uses drf-spectacular to automatically generate OpenAPI 3.0 documentation. Once the server is running, you can access the interactive API documentation at:
 
 ```bash
