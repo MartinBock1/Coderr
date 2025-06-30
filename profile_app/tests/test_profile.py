@@ -261,9 +261,8 @@ class ProfileAPITests(APITestCase):
         # The request should be successful because the user is authenticated.
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        # Step 4: Validate the structure and content of the response data.
-        # The actual list of profiles is inside the 'results' key due to pagination.
-        results = response.data['results']
+        # Step 4: Validate the structure and content of the response data..
+        results = response.data
 
         # Ensure the response data is a list, as expected for a list view.
         self.assertIsInstance(results, list)
@@ -323,7 +322,8 @@ class ProfileAPITests(APITestCase):
         # 1 Basic checks
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         # The actual list is in the 'results' key.
-        results = response.data['results']
+        results = response.data
+        self.assertNotIn('Z', results[0]['uploaded_at'])
         self.assertIsInstance(results, list)
 
         # 2. check the correct number
