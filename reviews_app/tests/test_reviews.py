@@ -5,13 +5,11 @@ from rest_framework.test import APITestCase
 from django.contrib.auth.models import User
 
 from ..models import Review
-from user_auth_app.models import UserProfile
+from profile_app.models import Profile
 
 # ====================================================================
 # CLASS 1: Tests on an empty database
 # ====================================================================
-
-
 class ReviewAPINoDataTests(APITestCase):
     """
     Test suite for the Review API endpoints when the database is empty.
@@ -59,7 +57,19 @@ class ReviewAPIWithDataTests(APITestCase):
         """
         Populates the database with multiple users and reviews to create a
         realistic test scenario for filtering.
+
+        This method establishes a specific data landscape to validate the API's filtering
+        capabilities. The key aspects of the scenario are:
+        - Two distinct 'business' users, allowing for tests that filter reviews for a
+          specific business.
+        - Two distinct 'reviewer' users, enabling tests that filter reviews by a
+          specific author.
+        - A scenario where one reviewer has written reviews for multiple businesses, which is
+          essential for verifying that the filters correctly isolate the intended data.
+        - A default authenticated user (`reviewer1`) for all tests in this class,
+          simplifying the individual test methods.
         """
+        # Create two users who will be the subjects of reviews.
         self.business_user1 = User.objects.create_user(
             username='business1',
             password='password123'
@@ -76,7 +86,8 @@ class ReviewAPIWithDataTests(APITestCase):
             password='password123'
         )
 
-        # Create two reviews from the same reviewer for different businesses.
+        # Create a specific data relationship to test against: reviewer1 has authored
+        # reviews for two different businesses. This is the core of the test setup.
         self.review_low_rating = Review.objects.create(
             business_user=self.business_user1,
             reviewer=self.reviewer1,
@@ -88,6 +99,7 @@ class ReviewAPIWithDataTests(APITestCase):
         )
 
         # Authenticate all subsequent requests in this class as reviewer1.
+        # This avoids having to repeat the authentication step in every test method.
         self.client.force_authenticate(user=self.reviewer1)
 
     def test_filter_reviews_by_business_user_id(self):
@@ -139,27 +151,53 @@ class ReviewCreateAPITests(APITestCase):
     def setUp(self):
         """
         Sets up users with distinct profiles ('customer', 'business') to test role-based
-        permissions.
+        permissions for review creation.
+
+        This method prepares a testing environment with users assigned specific roles to
+        rigorously test the permission system for the `POST /api/reviews/` endpoint.
+
+        The scenario includes:
+        1.  A 'business' user (`business_user`): The intended target of a review.
+        2.  A 'customer' user (`customer_user`): The authorized user who will attempt to
+            create a review (the "happy path").
+        3.  Another 'business' user (`another_business_user`): An unauthorized user who will
+            also attempt to create a review, specifically to test the failure case for the
+            `IsCustomerUser` permission.
         """
+        # Create the user who will be the target of the review.
         self.business_user = User.objects.create_user(
             username='business_owner',
             password='password123'
         )
+        # Create the user who is authorized to write reviews.
         self.customer_user = User.objects.create_user(
             username='customer',
             password='password123'
         )
+        # Create another user with a 'business' profile to test permission denial.
+        # This user should be blocked by the `IsCustomerUser` permission class.
         self.another_business_user = User.objects.create_user(
             username='another_business',
             password='password123'
         )
 
-        # Create UserProfile instances to assign roles.
-        UserProfile.objects.create(user=self.business_user, type='business')
-        UserProfile.objects.create(user=self.customer_user, type='customer')
-        UserProfile.objects.create(user=self.another_business_user, type='business')
+        # A Profile is automatically created for each User via a post-save signal.
+        # We now update the 'type' of these auto-generated profiles to match the
+        # roles required for our tests.
+        # Assign the 'business' role to the target user.
+        self.business_user.profile.type = Profile.UserType.BUSINESS
+        self.business_user.profile.save()
+        
+        # Assign the 'customer' role to the authorized reviewer.
+        self.customer_user.profile.type = Profile.UserType.CUSTOMER
+        self.customer_user.profile.save()
+        
+        # Assign the 'business' role to the unauthorized reviewer.
+        self.another_business_user.profile.type = Profile.UserType.BUSINESS
+        self.another_business_user.profile.save()
 
-        self.url = reverse('review-list')  # The URL for creating reviews is the list endpoint.
+        # The endpoint for creating reviews is the list view's URL.
+        self.url = reverse('review-list')
 
     def test_unauthenticated_user_cannot_create_review(self):
         """

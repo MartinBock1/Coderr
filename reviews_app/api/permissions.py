@@ -1,5 +1,5 @@
 from rest_framework import permissions
-from user_auth_app.models import UserProfile
+from profile_app.models import Profile
 
 
 class IsCustomerUser(permissions.BasePermission):
@@ -39,8 +39,8 @@ class IsCustomerUser(permissions.BasePermission):
         # User might exist without a corresponding UserProfile.
         try:
             # Grant permission only if the user's profile type is 'customer'.
-            return request.user.userprofile.type == 'customer'
-        except UserProfile.DoesNotExist:
+            return request.user.profile.type == 'customer'
+        except Profile.DoesNotExist:
             # If a UserProfile does not exist for the user, they cannot be a 'customer'.
             # Deny permission.
             return False
