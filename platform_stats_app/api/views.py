@@ -7,7 +7,7 @@ from django.db.models import Avg
 # Import models from their respective apps to aggregate data
 from reviews_app.models import Review
 from offers_app.models import Offer
-from user_auth_app.models import UserProfile
+from profile_app.models import Profile
 
 
 class BaseInfoView(APIView):
@@ -45,7 +45,7 @@ class BaseInfoView(APIView):
         # query at the database level without retrieving the objects into memory.
         review_count = Review.objects.count()
         offer_count = Offer.objects.count()
-        business_profile_count = UserProfile.objects.filter(type='business').count()
+        business_profile_count = Profile.objects.filter(type=Profile.UserType.BUSINESS).count()
 
         # 2. Calculate the average rating using a database-level aggregation.
         # .aggregate() performs the calculation in the database and returns a dictionary.
