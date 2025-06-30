@@ -337,6 +337,24 @@ class OrderAPIPatchTests(APITestCase):
         self.assertEqual(self.order.price, 100.00)
         self.assertEqual(self.order.status, 'in_progress')
 
+    def test_cannot_update_order_with_extra_fields(self):
+        """
+        Verifies that a PATCH request containing fields other than 'status'
+        is rejected with a 400 Bad Request.
+        """
+        url = reverse('order-detail', kwargs={'pk': self.order.id})
+        self.client.force_authenticate(user=self.user_b)
+        
+        # The payload contains a permitted and an unauthorized field.
+        invalid_payload = {
+            'status': 'completed',
+            'title': 'New Hacked Title'
+        }
+
+        response = self.client.patch(url, invalid_payload, format='json')
+
+        # Expect a 400 Bad Request because ‘title’ is not allowed.
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
 # ====================================================================
 # CLASS 5: Tests for DELETE endpoint

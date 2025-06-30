@@ -20,23 +20,31 @@ class OrderStatusUpdateSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         """
-        Ensures that no fields other than those defined in Meta.fields are passed.
+        Ensures that no fields other than those explicitly declared in this
+        serializer are present in the request payload.
 
-        This custom validation provides an extra layer of security by rejecting requests that
-        attempt to modify unauthorized fields, returning a clear error message to the client.
+        DRF by default ignores extra fields. This validation enforces the
+        strict requirement from the API documentation that such requests
+        should fail.
         """
-        # Get the set of fields explicitly allowed by this serializer.
-        allowed_fields = set(self.Meta.fields)
-        # Get the set of keys from the raw incoming request data.
+        # `self.initial_data` contains the raw data from the request,
+        # before any processing.
         input_keys = set(self.initial_data.keys())
+        
+        # `self.fields` contains the fields that have been declared on this
+        # serializer class (in this case, only 'status').
+        allowed_keys = set(self.fields.keys())
 
-        # Find any fields in the input that are not in the allowed set.
-        extra_fields = input_keys - allowed_fields
+        # Find any keys in the input that are not in the allowed set.
+        extra_fields = input_keys - allowed_keys
         if extra_fields:
-            # If extra fields exist, raise a validation error.
+            # If extra fields exist, raise a validation error, which DRF
+            # will turn into a 400 Bad Request response.
             raise serializers.ValidationError(
-                f"Unrecognized fields: {', '.join(extra_fields)}"
+                f"Only the 'status' field can be updated. "
+                f"Unrecognized fields provided: {', '.join(extra_fields)}"
             )
+            
         return data
 
 
