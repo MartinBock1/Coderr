@@ -4,24 +4,27 @@ from ..models import Review
 
 class ReviewReadSerializer(serializers.ModelSerializer):
     """
-    Serializes a Review object for read-only operations.
+    Serializer for the `Review` model, intended for read-only operations.
 
-    This serializer is designed for API endpoints that display review data (e.g., list and detail
-    GET requests). It includes all fields from the Review model, formats timestamps into a
-    consistent ISO 8601 format, and represents ForeignKey relationships (like 'business_user' and
-    'reviewer') by their primary key (ID).
-    """
-    # Format the output of timestamp fields to a consistent format for the API response.
-    # `read_only=True` ensures these fields cannot be updated via the API, as they are managed
-    # automatically by the model.
-    created_at = serializers.DateTimeField(format="%Y-%m-%dT%H:%M:%SZ", read_only=True)
-    updated_at = serializers.DateTimeField(format="%Y-%m-%dT%H:%M:%SZ", read_only=True)
+    This serializer is used to represent `Review` objects in API responses,
+    for example, in list or detail views (GET requests). It includes a standard
+    set of fields from the Review model.
+
+    Foreign key relationships (`business_user`, `reviewer`) are represented
+    by their primary keys (IDs), which is the default behavior. This makes the
+    payload lightweight and is suitable when the client already has or can
+
+    fetch the related user details separately.
+    """    
 
     class Meta:
+        """Meta class to configure the serializer's behavior."""
+        
+        # Specifies the Django model that this serializer is based on.
         model = Review
-        # Defines all fields to be included in the serialized output.
-        # By default, ForeignKey fields ('business_user', 'reviewer') are represented by their
-        # integer primary key.
+        # List of fields from the `Review` model to include in the output.
+        # This explicit list ensures that only these fields are exposed
+        # through the API endpoint using this serializer.
         fields = [
             'id',
             'business_user',
