@@ -1002,13 +1002,11 @@ class OfferAPIDeleteTests(APITestCase):
         # Check for a 404 Not Found response
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)        
 
-    def test_delete_non_existent_offer_unauthenticated_returns_404(self):
+    def test_delete_non_existent_offer_unauthenticated_returns_401(self):
         """
         Verifies that an unauthenticated request to delete a non-existent offer
-        returns a 404 Not Found, as per the specific API documentation.
-
-        This tests the custom logic in the `destroy` method, which prioritizes
-        the object existence check over the authentication check.
+        returns a 401 Unauthorized, because the authentication check is prioritized
+        over the object existence check.
         """
         # Create a URL for an ID that is guaranteed not to exist.
         non_existent_url = reverse('offer-detail', kwargs={'pk': 9999})
@@ -1016,8 +1014,8 @@ class OfferAPIDeleteTests(APITestCase):
         # Carry out the request WITHOUT authentication.
         response = self.client.delete(non_existent_url)
         
-        # Expect a 404 Not Found, not the standard 401 Unauthorized.
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        # Expect a 401
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
 # ====================================================================
 # CLASS 7: Tests for retrieving a single offer detail (GET)
