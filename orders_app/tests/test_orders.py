@@ -55,7 +55,8 @@ class OrderListAPITests(APITestCase):
         self.user_a = User.objects.create_user(username='userA', password='password123')
         self.user_b = User.objects.create_user(username='userB', password='password123')
         self.user_c = User.objects.create_user(username='userC', password='password123')
-        self.admin_user = User.objects.create_user(username='admin', password='password123', is_staff=True)
+        self.admin_user = User.objects.create_user(
+            username='admin', password='password123', is_staff=True)
 
         # user_a is the customer
         self.order1 = Order.objects.create(
@@ -130,8 +131,9 @@ class OrderListAPITests(APITestCase):
         orders, not all orders on the platform.
         """
         # Create an order in which the admin is involved.
-        Order.objects.create(customer_user=self.user_a, business_user=self.admin_user, title='Admin Order', price=500)
-        
+        Order.objects.create(customer_user=self.user_a,
+                             business_user=self.admin_user, title='Admin Order', price=500)
+
         url = reverse('order-list')
         self.client.force_authenticate(user=self.admin_user)
         response = self.client.get(url)
@@ -140,6 +142,7 @@ class OrderListAPITests(APITestCase):
         # The admin should only see the one order they are involved in.
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['title'], 'Admin Order')
+
 
 # ====================================================================
 # CLASS 3: Tests for creating (POST) orders
@@ -249,6 +252,7 @@ class OrderAPIPostTests(APITestCase):
         # Erwarten Sie einen 403 Forbidden, da nur Kunden Bestellungen erstellen dürfen.
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+
 # ====================================================================
 # CLASS 4: Tests for updating (PATCH) orders
 # ====================================================================
@@ -286,7 +290,7 @@ class OrderAPIPatchTests(APITestCase):
         # We update the auto-created profile's type to 'business'.
         self.user_b.profile.type = Profile.UserType.BUSINESS
         self.user_b.profile.save()
-        
+
         # Create the Order instance that will be the target of the update tests.
         # It explicitly links the customer and business users.
         self.order = Order.objects.create(
@@ -344,7 +348,7 @@ class OrderAPIPatchTests(APITestCase):
         """
         url = reverse('order-detail', kwargs={'pk': self.order.id})
         self.client.force_authenticate(user=self.user_b)
-        
+
         # The payload contains a permitted and an unauthorized field.
         invalid_payload = {
             'status': 'completed',
@@ -355,6 +359,33 @@ class OrderAPIPatchTests(APITestCase):
 
         # Expect a 400 Bad Request because ‘title’ is not allowed.
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_update_status_with_invalid_value_fails_400(self):
+        """
+        Verifies that a PATCH request with an invalid value for 'status'
+        is rejected with a 400 Bad Request.
+        """
+        # Arrange
+        url = reverse('order-detail', kwargs={'pk': self.order.id})
+        self.client.force_authenticate(user=self.user_b)  # Authenticate as the business owner
+        invalid_payload = {'status': 'invalid_status_value'}
+
+        # Act
+        response = self.client.patch(url, invalid_payload, format='json')
+
+        # Assert
+        # 1. The request should fail with a 400 Bad Request.
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # 2. The error message should point to the 'status' field and mention the invalid choice.
+        self.assertIn('status', response.data)
+        expected_error_fragment = "is not a valid choice."
+        self.assertIn(expected_error_fragment, str(response.data['status']))
+
+        # 3. Verify that the database state has not changed.
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, 'in_progress')
+
 
 # ====================================================================
 # CLASS 5: Tests for DELETE endpoint
@@ -415,6 +446,7 @@ class OrderAPIDeleteTests(APITestCase):
         # Prüfen, ob die Bestellung wirklich weg ist.
         self.assertFalse(Order.objects.filter(id=self.order.id).exists())
 
+
 # ====================================================================
 # CLASS 6: Tests for Order Count endpoint
 # ====================================================================
@@ -473,6 +505,7 @@ class OrderCountViewTests(APITestCase):
 # ====================================================================
 class CompletedOrderCountViewTests(APITestCase):
     """Tests for the custom `CompletedOrderCountView` endpoint."""
+
     def setUp(self):
         """
         Creates a business user and several orders with different statuses to test counting.
