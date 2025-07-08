@@ -24,6 +24,7 @@ class BaseInfoView(APIView):
     # This permission class makes the endpoint public and accessible to anyone,
     # including unauthenticated users.
     permission_classes = [AllowAny]
+    authentication_classes = []
 
     def get(self, request, format=None):
         """
