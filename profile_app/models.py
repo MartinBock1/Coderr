@@ -100,8 +100,6 @@ class Profile(models.Model):
         return None
 
 # --- Signal Handlers ---
-
-
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
     """
@@ -120,5 +118,4 @@ def save_user_profile(sender, instance, **kwargs):
     try:
         instance.profile.save()
     except Profile.DoesNotExist:
-        # Falls das Profil aus irgendeinem Grund fehlt, wird es neu erstellt.
         Profile.objects.create(user=instance)
