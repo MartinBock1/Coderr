@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from offers_app.models import Offer, OfferDetail
+from django.db import transaction
+from ..models import Offer, OfferDetail
 
 
 class UserDetailSerializer(serializers.ModelSerializer):
@@ -22,11 +23,10 @@ class OfferDetailReadSerializer(serializers.ModelSerializer):
     contexts, such as in the `GET /api/offerdetails/{id}/` endpoint or when fully nested inside
     an OfferResponseSerializer.
     """
-    # delivery_time_in_days = serializers.IntegerField(source='delivery_time_days')
 
     class Meta:
         model = OfferDetail
-        
+
         # These fields represent the public-facing data for an offer package.
         fields = [
             'id',
@@ -46,11 +46,11 @@ class OfferDetailCreateSerializer(serializers.ModelSerializer):
     This serializer is used for nested writes within the OfferCreateUpdateSerializer.
     It defines all the fields a user can provide when creating or modifying an offer package.
     """
-    # delivery_time_in_days = serializers.IntegerField(source='delivery_time_days')
+    revisions = serializers.IntegerField(required=False, allow_null=True, min_value=-1, default=0)
 
     class Meta:
         model = OfferDetail
-        
+
         # Defines all fields that can be written to by the client.
         fields = [
             'title',
@@ -63,11 +63,40 @@ class OfferDetailCreateSerializer(serializers.ModelSerializer):
             'offer_type'
         ]
 
+    def validate_revisions(self, value):
+        """
+        Performs custom field-level validation for the 'revisions' field.
+
+        This method is a hook provided by the Django REST Framework, automatically
+        called for the `revisions` field during the .is_valid() process. Its
+        purpose is to sanitize the input for the number of revisions.
+
+        If the client omits the 'revisions' field in the request or explicitly sends
+        `null`, the incoming `value` will be `None`. This validator intercepts that
+        case and converts `None` into a default integer value of `0`. This ensures
+        that a clean, non-null integer is always passed to the model instance,
+        preventing potential database errors and simplifying model logic.
+
+        Args:
+            value (any): The incoming value for the 'revisions' field from the
+                         request payload. This could be an integer, `None`, etc.
+
+        Returns:
+            int: The validated integer value for the revisions. Returns `0` if
+                 the input `value` is `None`, otherwise returns the original value.
+        """
+        # If the value is None (e.g., field was omitted or sent as null),
+        # convert it to 0.
+        if value is None:
+            return 0
+        # Otherwise, return the value as is.
+        return value
+
 
 class OfferDetailUrlSerializer(serializers.HyperlinkedModelSerializer):
     """
     Serializes an OfferDetail to a lightweight representation with just its ID and URL.
-    
+
     Used in list views (like OfferListSerializer) to avoid nesting large amounts of data, improving
     performance and keeping the API response lean.
     """
@@ -115,8 +144,8 @@ class OfferListSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
             'details',  # The list of detail URLs
-            'min_price', # Annotated field
-            'min_delivery_time', # Annotated field
+            'min_price',  # Annotated field
+            'min_delivery_time',  # Annotated field
             'user_details',  # The nested user object
         ]
 
@@ -131,7 +160,7 @@ class OfferCreateUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Offer
-        
+
         # Defines the fields that are writable from the API for the main Offer.
         fields = ['title', 'description', 'image', 'details']
 
@@ -150,25 +179,53 @@ class OfferCreateUpdateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     f"Exactly 3 detail packages are required for creation, but {len(value)} were provided."
                 )
-        
+
         # For update operations, we don't validate the count, as it's a partial update.
         return value
 
     def create(self, validated_data):
         """
-        Handles the creation of an Offer and its nested OfferDetails
+        Handles the creation of an Offer and its nested OfferDetails as a single, atomic operation.
+
+        This method is responsible for creating a parent `Offer` instance and its associated child
+        `OfferDetail` instances from a single API request. It ensures data integrity by wrapping
+        the database operations in a transaction. If the creation of the main offer or any of its
+        details fails, the entire operation is rolled back, preventing orphaned data in the
+        database.
+
+        The process is as follows:
+        1.  The nested 'details' data (a list of dictionaries) is separated from the main
+        `validated_data` using `.pop()`.
+        2.  A database transaction is started using `transaction.atomic()`.
+        3.  The parent `Offer` object is created with the remaining top-level data.
+        4.  The method then iterates through the list of detail data. For each item, it creates an
+            `OfferDetail` instance, linking it back to the newly created parent `Offer`.
+        5.  If all database operations within the block succeed, the transaction is committed.
+            Otherwise, it is rolled back automatically upon an exception.
+
+        Args:
+            validated_data (dict): The validated data from the serializer. It is expected to
+                                   contain the fields for the Offer model and a 'details' key
+                                   holding a list of dictionaries, where each dictionary
+                                   represents an OfferDetail.
+
+        Returns:
+            Offer: The newly created parent `Offer` instance, which can then be used to generate
+                   the API response.
         """
         # Separate the nested details data from the main offer data.
         details_data = validated_data.pop('details')
-        
-        # First, create the parent Offer instance.
-        offer = Offer.objects.create(**validated_data)
-        
-        # Then, iterate through the details data and create each OfferDetail,
-        # linking it to the newly created parent offer.
-        for detail_item in details_data:
-            OfferDetail.objects.create(offer=offer, ** detail_item)
 
+        # Use a database transaction to ensure all or nothing is saved.
+        with transaction.atomic():
+            # Create the parent Offer instance with the top-level data.
+            offer = Offer.objects.create(**validated_data)
+            # Loop through the list of nested detail data.
+            for detail_item in details_data:
+                # Create each OfferDetail instance and link it to the parent Offer.
+                OfferDetail.objects.create(offer=offer, **detail_item)
+
+        # Return the newly created parent offer instance.
         return offer
 
     def update(self, instance, validated_data):

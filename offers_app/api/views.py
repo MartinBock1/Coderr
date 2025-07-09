@@ -1,11 +1,11 @@
 from rest_framework import viewsets, status
 from rest_framework.filters import SearchFilter, OrderingFilter
-from rest_framework.permissions import IsAuthenticated, AllowAny 
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from django.db.models import Min
 from django_filters.rest_framework import DjangoFilterBackend
 
-from offers_app.models import Offer, OfferDetail
+from ..models import Offer, OfferDetail
 from .serializers import (
     OfferListSerializer,
     OfferCreateUpdateSerializer,
@@ -41,7 +41,7 @@ class OfferViewSet(viewsets.ModelViewSet):
     filterset_class = OfferFilter
     search_fields = ['title', 'description']
     ordering_fields = ['updated_at', 'min_price']
-    
+
     def get_permissions(self):
         """
         Dynamically assigns permission classes for the ViewSet based on the request's action.
@@ -87,7 +87,7 @@ class OfferViewSet(viewsets.ModelViewSet):
         elif self.action == 'retrieve':
             # `IsAuthenticated` simply ensures the request comes from a logged-in user.
             self.permission_classes = [IsAuthenticated]
-            
+
         # This `else` block serves as the default for any other actions,
         # which in a standard ModelViewSet is primarily the 'list' action.
         else:
@@ -115,7 +115,7 @@ class OfferViewSet(viewsets.ModelViewSet):
             min_price=Min('details__price'),
             min_delivery_time_days=Min('details__delivery_time_in_days')
         ).select_related('user').prefetch_related('details').order_by('-updated_at')
-    
+
     def get_serializer_class(self):
         """
         Returns the appropriate serializer class based on the request action.
@@ -132,7 +132,7 @@ class OfferViewSet(viewsets.ModelViewSet):
             return OfferRetrieveSerializer
         # For the list view, use the more lightweight list serializer.
         return OfferListSerializer
-    
+
     def perform_create(self, serializer):
         """
         A hook called by `create()` to automatically assign the logged-in user as the owner of the
@@ -174,7 +174,7 @@ class OfferViewSet(viewsets.ModelViewSet):
             # If 'prefetch_related' was used, the cache is now stale.
             # Reload the instance from the DB to get the updated nested details.
             instance = self.get_object()
-        
+
         # Serialize the updated instance for the response.
         read_serializer = OfferResponseSerializer(instance, context=self.get_serializer_context())
         return Response(read_serializer.data)
@@ -216,19 +216,20 @@ class OfferViewSet(viewsets.ModelViewSet):
         #   2. Triggers the object-level permission checks (e.g., IsOwnerOrReadOnly)
         #      that were configured for this action in `get_permissions()`.
         instance = self.get_object()
-        
+
         # Step 2: Call the DRF helper to delete the object from the database.
         # This method, by default, simply calls `instance.delete()`. Using this
         # hook is a best practice, as it allows for custom pre- or post-delete
         # logic to be added later by overriding it.
         self.perform_destroy(instance)
-        
+
         # Step 3: Return a success response.
         # HTTP 204 No Content is the standard and expected response for a
         # successful DELETE operation. It indicates success but signals to the
         # client that there is no response body to parse.
         return Response(status=status.HTTP_204_NO_CONTENT)
-    
+
+
 class OfferDetailViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Provides read-only access to OfferDetail objects.
