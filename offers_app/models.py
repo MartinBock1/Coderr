@@ -26,29 +26,29 @@ class Offer(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="offers")
-    
+
     # The main title of the offer, e.g., "Professional Logo Design".
     title = models.CharField(max_length=255)
-    
+
     # A more detailed description of the service being offered.
     description = models.TextField(blank=True)
-    
+
     # An optional representative image for the offer.
     image = models.ImageField(
         upload_to='offers/images/',
         blank=True,
         null=True)
-    
+
     # Timestamp for when the offer was first created. Automatically set on creation.
     created_at = models.DateTimeField(auto_now_add=True)
-    
+
     # Timestamp for the last update. Automatically set on every save.
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         # Default ordering for querysets: most recently updated offers first.
         ordering = ['-updated_at']
-        
+
         # Human-readable names for the Django admin interface.
         verbose_name = "Offer"
         verbose_name_plural = "Offers"
@@ -86,27 +86,27 @@ class OfferDetail(models.Model):
     # Link to the parent Offer. `related_name="details"` allows accessing these from an offer instance
     # (e.g., offer.details.all()).
     offer = models.ForeignKey(Offer, on_delete=models.CASCADE, related_name="details")
-    
+
     # The title for this specific tier, e.g., "Standard Package".
     title = models.CharField(max_length=150)
-    
-    # The price for this package. 
+
+    # The price for this package.
     # DecimalField is used to avoid floating-point inaccuracies with currency.
     price = models.DecimalField(max_digits=10, decimal_places=2)
-    
-    # The estimated delivery time, in whole days. 
+
+    # The estimated delivery time, in whole days.
     # Renamed from `delivery_time_days` for API consistency.
     delivery_time_in_days = models.PositiveIntegerField()
     description = models.TextField(blank=True, null=True)
     image = models.ImageField(
         upload_to='offers/images/',
         blank=True,
-        null=True)    
-    revisions = models.PositiveIntegerField(default=0)
-    features = models.JSONField(default=list) # Beste Wahl für eine Liste von Strings
+        null=True)
+    revisions = models.IntegerField(default=0)
+    features = models.JSONField(default=list)  # Beste Wahl für eine Liste von Strings
     offer_type = models.CharField(
-        max_length=20, 
-        choices=OfferType.choices, 
+        max_length=20,
+        choices=OfferType.choices,
         default=OfferType.STANDARD
     )
 
