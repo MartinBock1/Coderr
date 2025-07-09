@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from profile_app.models import Profile
+from ..models import Profile
 
 
 class CustomerProfileListSerializer(serializers.ModelSerializer):
@@ -18,13 +18,14 @@ class CustomerProfileListSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
     first_name = serializers.CharField(source='user.first_name', read_only=True)
     last_name = serializers.CharField(source='user.last_name', read_only=True)
-    
-     # --- Fields from the Profile model (with special handling) ---
+
+    # --- Fields from the Profile model (with special handling) ---
 
     # The profile's creation timestamp, which is renamed to 'uploaded_at' for the API output.
     # `source='created_at'`: Specifies that the data should come from the `created_at` model field.
     # `format="..."`: Enforces a specific ISO 8601 string format, omitting milliseconds and timezone.
-    uploaded_at = serializers.DateTimeField(source='created_at', format="%Y-%m-%dT%H:%M:%S", read_only=True)
+    uploaded_at = serializers.DateTimeField(
+        source='created_at', format="%Y-%m-%dT%H:%M:%S", read_only=True)
 
     # The full URL to the profile picture.
     # `source='file_url'`: This points to the `file_url` @property method on the Profile model,
@@ -33,7 +34,7 @@ class CustomerProfileListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Profile
-        
+
         # A list of all field names that should be included in the serialized output.
         # It's crucial that any field explicitly defined above is also included in this
         # list to be rendered in the final JSON response. The order here also
@@ -48,8 +49,8 @@ class CustomerProfileListSerializer(serializers.ModelSerializer):
             'working_hours',
             'type',
         ]
-        
-        
+
+
 class BusinessProfileListSerializer(serializers.ModelSerializer):
     """
     A lightweight serializer for listing business profiles.
@@ -109,10 +110,7 @@ class ProfileSerializer(serializers.ModelSerializer):
 
     # --- Fields from the Profile model (with special handling) ---
 
-    # The full URL to the profile picture.
-    # It uses the `file_url` property from the Profile model to ensure a complete
-    # URL is returned, not just a relative file path. It is read-only.
-    file = serializers.CharField(source='file_url', read_only=True)
+    file = serializers.ImageField(required=False, allow_null=True, use_url=True)
 
     # The user's unique ID.
     # The `source='user.id'` fetches the primary key from the related User object
@@ -148,6 +146,42 @@ class ProfileSerializer(serializers.ModelSerializer):
         # defined as read-only, but it's the standard place to protect other model
         # fields from being written to if they were not explicitly defined.
         read_only_fields = ['created_at']
+
+    def to_representation(self, instance):
+        """
+        Customizes the serializer's output representation for the instance.
+
+        This method is a Django REST Framework hook that allows for the modification
+        of the serialized data just before it is returned in an API response.
+        Its primary purpose here is to ensure the output format of the 'file'
+        field meets specific API requirements.
+
+        The default behavior of a serialized `ImageField` is to return the full URL
+        of the image if it exists, or `None` (which becomes `null` in JSON) if it
+        does not. This method overrides the `null` case by converting it to an
+        empty string (`''`), providing a more consistent and predictable data
+        structure for API consumers.
+
+        Args:
+            instance (Model): The model instance that is being serialized (e.g., a `Profile`
+            object).
+
+        Returns:
+            dict: The final, customized dictionary representation of the instance,
+                  ready to be rendered into JSON.
+        """
+        # First, get the default representation from the parent class.
+        # For an ImageField, this will correctly generate the full URL if a file exists.
+        representation = super().to_representation(instance)
+
+        # Check if the 'file' field in the generated representation is None.
+        # This happens when the model's ImageField is empty.
+        if representation.get('file') is None:
+            # Replace 'None' with an empty string to meet API specifications.
+            representation['file'] = ''
+
+        # Return the modified representation.
+        return representation
 
     def update(self, instance, validated_data):
         """
