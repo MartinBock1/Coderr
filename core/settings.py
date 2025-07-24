@@ -29,7 +29,7 @@ SECRET_KEY = 'django-insecure-0t!mutr@wy(4v+75@-@^4e3(!^4()rp-(ph_#e=#$b88tf8tgq
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '34.52.146.63', 'server-coderr.martin-bock.info']
 
 
 # Application definition
@@ -68,11 +68,13 @@ MIDDLEWARE = [
 CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1:5500',
     'http://localhost:5500',
+    'https://www.coderr.martin-bock.info',
 ]
 
 CORS_ALLOWED_ORIGINS = [
     'http://127.0.0.1:5500',
     'http://localhost:5500',
+    'https://www.coderr.martin-bock.info',
 ]
 
 ROOT_URLCONF = 'core.urls'
@@ -141,6 +143,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, "static")
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
